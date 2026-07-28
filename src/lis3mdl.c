@@ -12,3 +12,17 @@ HAL_StatusTypeDef LIS3MDL_ReadReg(LIS3MDL_Handle_t *pHandle, uint8_t RegAddress,
     return HAL_I2C_Mem_Read(pHandle->hi2c, LIS3MDL_I2C_ADDR, ActualAddress, I2C_MEMADD_SIZE_8BIT,
                             pBuffer, Length, HAL_MAX_DELAY);
 }
+
+bool LIS3MDL_CheckWhoAmI(LIS3MDL_Handle_t *pHandle) {
+
+    // Byte to write the data from the WHO_AM_I register to
+    uint8_t WhoAmIByte;
+
+    // Read the WHO_AM_I register (0x0F)
+    HAL_StatusTypeDef status = LIS3MDL_ReadReg(pHandle, LIS3MDL_REG_WHO_AM_I, &WhoAmIByte, 1);
+    if (status != HAL_OK) {
+        return false;
+    }
+
+    return WhoAmIByte == LIS3MDL_WHO_AM_I_VALUE;
+}

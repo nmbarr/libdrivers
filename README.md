@@ -5,6 +5,7 @@ C library for embedded sensor drivers.
 ## Current Drivers
 
 - **LIS3MDL** - 3-axis magnetometer
+- **HTS221** - Temperature and humidity sensor
 
 ## Datasheets
 

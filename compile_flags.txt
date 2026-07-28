@@ -1,5 +1,8 @@
--Iinclude/libdrivers
 -xc
 -std=c11
--isystem/usr/lib/gcc/x86_64-linux-gnu/13/include
--isystem/usr/include
+-Iinclude/libdrivers
+-DSTM32L4S5xx
+-DUSE_HAL_DRIVER
+-I/home/nickbarr/stm32cubel4/Drivers/STM32L4xx_HAL_Driver/Inc
+-I/home/nickbarr/stm32cubel4/Drivers/CMSIS/Device/ST/STM32L4xx/Include
+-I/home/nickbarr/stm32cubel4/Drivers/CMSIS/Include

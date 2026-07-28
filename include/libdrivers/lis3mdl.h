@@ -58,6 +58,6 @@ HAL_StatusTypeDef LIS3MDL_ReadReg(LIS3MDL_Handle_t *pHandle, uint8_t RegAddress,
                                   uint16_t Length);
 
 // Function to verify the WHO_AM_I register returns the correct data
-bool HTS221_CheckWhoAmI(LIS3MDL_Handle_t *pHandle);
+bool LIS3MDL_CheckWhoAmI(LIS3MDL_Handle_t *pHandle);
 
 #endif // LIS3MDL_H

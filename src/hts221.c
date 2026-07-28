@@ -1,7 +1,29 @@
 #include "hts221.h"
-#include "stm32l4xx_hal_def.h"
-#include "stm32l4xx_hal_i2c.h"
 #include <stdint.h>
+
+HAL_StatusTypeDef HTS221_Init(HTS221_Handle_t *pHandle, const HTS221_Config_t *pConfig) {
+
+    // The return type from writing to the register
+    HAL_StatusTypeDef status;
+
+    // Write to CTRL_REG 1->5
+    status = HTS221_WriteReg(pHandle, HTS221_REG_CTRL_REG1, pConfig->CtrlReg1);
+    if (status != HAL_OK) {
+        return status;
+    }
+
+    status = HTS221_WriteReg(pHandle, HTS221_REG_CTRL_REG2, pConfig->CtrlReg2);
+    if (status != HAL_OK) {
+        return status;
+    }
+
+    status = HTS221_WriteReg(pHandle, HTS221_REG_CTRL_REG3, pConfig->CtrlReg3);
+    if (status != HAL_OK) {
+        return status;
+    }
+
+    return HAL_OK;
+}
 
 HAL_StatusTypeDef HTS221_ReadReg(HTS221_Handle_t *pHandle, uint8_t RegAddress, uint8_t *pBuffer,
                                  uint16_t Length) {
@@ -10,8 +32,17 @@ HAL_StatusTypeDef HTS221_ReadReg(HTS221_Handle_t *pHandle, uint8_t RegAddress, u
     uint8_t ActualAddress = RegAddress | HTS221_AUTO_INCREMENT_BIT;
 
     // Call Mem_Read from the STM32 HAL library
+    // TODO: Need to make this vendor agnostic but for now it works for what I need
     return HAL_I2C_Mem_Read(pHandle->hi2c, HTS221_I2C_ADDR, ActualAddress, I2C_MEMADD_SIZE_8BIT,
                             pBuffer, Length, HAL_MAX_DELAY);
+}
+
+HAL_StatusTypeDef HTS221_WriteReg(HTS221_Handle_t *pHandle, uint8_t RegAddress, uint8_t Value) {
+
+    // Call Mem_Write from the STM32 HAL library
+    // TODO: Need to make this vendor agnostic but for now it works for what I need
+    return HAL_I2C_Mem_Write(pHandle->hi2c, HTS221_I2C_ADDR, RegAddress, I2C_MEMADD_SIZE_8BIT,
+                             &Value, 1, HAL_MAX_DELAY);
 }
 
 HAL_StatusTypeDef HTS221_ReadCalibration(HTS221_Handle_t *pHandle) {
@@ -95,7 +126,7 @@ HAL_StatusTypeDef HTS221_ReadCalibration(HTS221_Handle_t *pHandle) {
 
     int16_t out;
 
-    status = HTS221_ReadReg(pHandle, HTS221_REG_H0_T0_OUT, buffer, 2);
+    status = HTS221_ReadReg(pHandle, HTS221_REG_H0_T0_OUT_L, buffer, 2);
     if (status != HAL_OK) {
         return status;
     }
@@ -103,7 +134,7 @@ HAL_StatusTypeDef HTS221_ReadCalibration(HTS221_Handle_t *pHandle) {
     out = (buffer[1] << 8) | buffer[0];
     pHandle->H0_T0_OUT = out;
 
-    status = HTS221_ReadReg(pHandle, HTS221_REG_H1_T0_OUT, buffer, 2);
+    status = HTS221_ReadReg(pHandle, HTS221_REG_H1_T0_OUT_L, buffer, 2);
     if (status != HAL_OK) {
         return status;
     }
@@ -111,7 +142,7 @@ HAL_StatusTypeDef HTS221_ReadCalibration(HTS221_Handle_t *pHandle) {
     out = (buffer[1] << 8) | buffer[0];
     pHandle->H1_T0_OUT = out;
 
-    status = HTS221_ReadReg(pHandle, HTS221_REG_T0_OUT, buffer, 2);
+    status = HTS221_ReadReg(pHandle, HTS221_REG_T0_OUT_L, buffer, 2);
     if (status != HAL_OK) {
         return status;
     }
@@ -119,7 +150,7 @@ HAL_StatusTypeDef HTS221_ReadCalibration(HTS221_Handle_t *pHandle) {
     out = (buffer[1] << 8) | buffer[0];
     pHandle->T0_OUT = out;
 
-    status = HTS221_ReadReg(pHandle, HTS221_REG_T1_OUT, buffer, 2);
+    status = HTS221_ReadReg(pHandle, HTS221_REG_T1_OUT_L, buffer, 2);
     if (status != HAL_OK) {
         return status;
     }
@@ -140,7 +171,7 @@ HAL_StatusTypeDef HTS221_ReadRawOutput(HTS221_Handle_t *pHandle) {
 
     int16_t out;
 
-    status = HTS221_ReadReg(pHandle, HTS221_REG_H_OUT, buffer, 2);
+    status = HTS221_ReadReg(pHandle, HTS221_REG_HUMIDITY_OUT_L, buffer, 2);
     if (status != HAL_OK) {
         return status;
     }
@@ -148,7 +179,7 @@ HAL_StatusTypeDef HTS221_ReadRawOutput(HTS221_Handle_t *pHandle) {
     out = (buffer[1] << 8) | buffer[0];
     pHandle->H_OUT = out;
 
-    status = HTS221_ReadReg(pHandle, HTS221_REG_T_OUT, buffer, 2);
+    status = HTS221_ReadReg(pHandle, HTS221_REG_TEMP_OUT_L, buffer, 2);
     if (status != HAL_OK) {
         return status;
     }

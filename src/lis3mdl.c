@@ -26,3 +26,20 @@ bool LIS3MDL_CheckWhoAmI(LIS3MDL_Handle_t *pHandle) {
 
     return WhoAmIByte == LIS3MDL_WHO_AM_I_VALUE;
 }
+
+HAL_StatusTypeDef LIS3MDL_ReadOffset(LIS3MDL_Handle_t *pHandle, int16_t *pOffsetXYZ) {
+
+    // Buffer to write the XYZ bytes into
+    uint8_t buffer[6];
+
+    HAL_StatusTypeDef status = LIS3MDL_ReadReg(pHandle, LIS3MDL_REG_OFFSET_X_L_M, buffer, 6);
+    if (status != HAL_OK) {
+        return status;
+    }
+
+    pOffsetXYZ[0] = (int16_t)((buffer[1] << 8) | buffer[0]); // X
+    pOffsetXYZ[1] = (int16_t)((buffer[3] << 8) | buffer[2]); // Y
+    pOffsetXYZ[2] = (int16_t)((buffer[5] << 8) | buffer[4]); // Z
+
+    return HAL_OK;
+}

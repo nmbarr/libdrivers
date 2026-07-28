@@ -58,7 +58,7 @@ HAL_StatusTypeDef LIS3MDL_ReadReg(LIS3MDL_Handle_t *pHandle, uint8_t RegAddress,
                                   uint16_t Length);
 
 // Function to read the hard-iron offset registers
-HAL_StatusTypeDef LIS3MDL_ReadOffset(LIS3MDL_Handle_t *pHandle, int16_t *pOffsetXYZ);
+HAL_StatusTypeDef LIS3MDL_ReadHardIronOffset(LIS3MDL_Handle_t *pHandle, int16_t *pOffsetXYZ);
 
 // Function to verify the WHO_AM_I register returns the correct data
 bool LIS3MDL_CheckWhoAmI(LIS3MDL_Handle_t *pHandle);

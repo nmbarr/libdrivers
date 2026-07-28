@@ -27,7 +27,7 @@ bool LIS3MDL_CheckWhoAmI(LIS3MDL_Handle_t *pHandle) {
     return WhoAmIByte == LIS3MDL_WHO_AM_I_VALUE;
 }
 
-HAL_StatusTypeDef LIS3MDL_ReadOffset(LIS3MDL_Handle_t *pHandle, int16_t *pOffsetXYZ) {
+HAL_StatusTypeDef LIS3MDL_ReadHardIronOffset(LIS3MDL_Handle_t *pHandle, int16_t *pOffsetXYZ) {
 
     // Buffer to write the XYZ bytes into
     uint8_t buffer[6];

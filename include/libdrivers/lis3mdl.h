@@ -49,6 +49,7 @@
 // Auto-increment bit (bit 7) - OR with register address for multi-byte reads
 #define LIS3MDL_AUTO_INCREMENT_BIT 0x80
 
+// Struct to hold I2C information for the STM32 library
 typedef struct {
     I2C_HandleTypeDef *hi2c;
 } LIS3MDL_Handle_t;
@@ -62,6 +63,13 @@ typedef struct {
     uint8_t CtrlReg5;
 } LIS3MDL_Config_t;
 
+// Struct to store sensor XYZ axis data
+typedef struct {
+    int16_t X;
+    int16_t Y;
+    int16_t Z;
+} LIS3MDL_AxisData_t;
+
 // Initialization function
 HAL_StatusTypeDef LIS3MDL_Init(LIS3MDL_Handle_t *pHandle, const LIS3MDL_Config_t *pConfig);
 
@@ -74,6 +82,9 @@ HAL_StatusTypeDef LIS3MDL_WriteReg(LIS3MDL_Handle_t *pHandle, uint8_t RegAddress
 
 // Function to read the hard-iron offset registers
 HAL_StatusTypeDef LIS3MDL_ReadHardIronOffset(LIS3MDL_Handle_t *pHandle, int16_t *pOffsetXYZ);
+
+// Function to read the raw ADC bytes from the XYZ axis registers
+HAL_StatusTypeDef LIS3MDL_ReadRaw(LIS3MDL_Handle_t *pHandle, LIS3MDL_AxisData_t *pData);
 
 // Function to verify the WHO_AM_I register returns the correct data
 bool LIS3MDL_CheckWhoAmI(LIS3MDL_Handle_t *pHandle);

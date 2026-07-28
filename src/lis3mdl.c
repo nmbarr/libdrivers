@@ -55,20 +55,6 @@ HAL_StatusTypeDef LIS3MDL_WriteReg(LIS3MDL_Handle_t *pHandle, uint8_t RegAddress
                              &Value, 1, HAL_MAX_DELAY);
 }
 
-bool LIS3MDL_CheckWhoAmI(LIS3MDL_Handle_t *pHandle) {
-
-    // Byte to write the data from the WHO_AM_I register to
-    uint8_t WhoAmIByte;
-
-    // Read the WHO_AM_I register (0x0F)
-    HAL_StatusTypeDef status = LIS3MDL_ReadReg(pHandle, LIS3MDL_REG_WHO_AM_I, &WhoAmIByte, 1);
-    if (status != HAL_OK) {
-        return false;
-    }
-
-    return WhoAmIByte == LIS3MDL_WHO_AM_I_VALUE;
-}
-
 HAL_StatusTypeDef LIS3MDL_ReadHardIronOffset(LIS3MDL_Handle_t *pHandle, int16_t *pOffsetXYZ) {
 
     // Buffer to write the XYZ bytes into
@@ -84,4 +70,35 @@ HAL_StatusTypeDef LIS3MDL_ReadHardIronOffset(LIS3MDL_Handle_t *pHandle, int16_t 
     pOffsetXYZ[2] = (int16_t)((buffer[5] << 8) | buffer[4]); // Z
 
     return HAL_OK;
+}
+
+HAL_StatusTypeDef LIS3MDL_ReadRaw(LIS3MDL_Handle_t *pHandle, LIS3MDL_AxisData_t *pData) {
+
+    // Buffer to write the XYZ axis data into
+    uint8_t buffer[6];
+
+    HAL_StatusTypeDef status = LIS3MDL_ReadReg(pHandle, LIS3MDL_REG_OUT_X_L, buffer, 6);
+    if (status != HAL_OK) {
+        return status;
+    }
+
+    pData->X = (int16_t)((buffer[1] << 8) | buffer[0]); // X
+    pData->Y = (int16_t)((buffer[3] << 8) | buffer[2]); // Y
+    pData->Z = (int16_t)((buffer[5] << 8) | buffer[4]); // Z
+
+    return HAL_OK;
+}
+
+bool LIS3MDL_CheckWhoAmI(LIS3MDL_Handle_t *pHandle) {
+
+    // Byte to write the data from the WHO_AM_I register to
+    uint8_t WhoAmIByte;
+
+    // Read the WHO_AM_I register (0x0F)
+    HAL_StatusTypeDef status = LIS3MDL_ReadReg(pHandle, LIS3MDL_REG_WHO_AM_I, &WhoAmIByte, 1);
+    if (status != HAL_OK) {
+        return false;
+    }
+
+    return WhoAmIByte == LIS3MDL_WHO_AM_I_VALUE;
 }

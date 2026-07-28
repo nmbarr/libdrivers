@@ -1,0 +1,33 @@
+# libdrivers C style
+# Base style to inherit sensible defaults from.
+BasedOnStyle: LLVM
+
+Language: Cpp
+
+# Indentation: 4 spaces, never tabs (matches editor config).
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+# Wrapping.
+ColumnLimit: 100
+
+# Braces on same line for functions/control, but Allman-free (K&R-ish).
+BreakBeforeBraces: Attach
+
+# Pointers bind to the name: `uint8_t *reg`.
+PointerAlignment: Right
+
+# Align consecutive #define values into clean columns (nice for register maps).
+AlignConsecutiveMacros: AcrossEmptyLines
+
+# Don't collapse short blocks/functions onto one line.
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+
+# Keep includes sorted and grouped.
+SortIncludes: CaseInsensitive
+
+# Spacing.
+SpaceBeforeParens: ControlStatements

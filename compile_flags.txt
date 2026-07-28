@@ -1,0 +1,5 @@
+-Iinclude/libdrivers
+-xc
+-std=c11
+-isystem/usr/lib/gcc/x86_64-linux-gnu/13/include
+-isystem/usr/include

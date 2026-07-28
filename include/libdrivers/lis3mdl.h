@@ -53,9 +53,24 @@ typedef struct {
     I2C_HandleTypeDef *hi2c;
 } LIS3MDL_Handle_t;
 
+// Struct to hold the bytes for each CTRL_REG
+typedef struct {
+    uint8_t CtrlReg1;
+    uint8_t CtrlReg2;
+    uint8_t CtrlReg3;
+    uint8_t CtrlReg4;
+    uint8_t CtrlReg5;
+} LIS3MDL_Config_t;
+
+// Initialization function
+HAL_StatusTypeDef LIS3MDL_Init(LIS3MDL_Handle_t *pHandle, const LIS3MDL_Config_t *pConfig);
+
 // Function to read a register given a register address
 HAL_StatusTypeDef LIS3MDL_ReadReg(LIS3MDL_Handle_t *pHandle, uint8_t RegAddress, uint8_t *pBuffer,
                                   uint16_t Length);
+
+// Function to write to a register given a register address
+HAL_StatusTypeDef LIS3MDL_WriteReg(LIS3MDL_Handle_t *pHandle, uint8_t RegAddress, uint8_t Value);
 
 // Function to read the hard-iron offset registers
 HAL_StatusTypeDef LIS3MDL_ReadHardIronOffset(LIS3MDL_Handle_t *pHandle, int16_t *pOffsetXYZ);

@@ -54,5 +54,8 @@ dkms.conf
 # debug information files
 *.dwo
 
+# CMake build tree (generated output)
+build/
+
 # Local clangd/LSP config (machine-specific absolute paths)
 compile_flags.txt

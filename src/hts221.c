@@ -1,66 +1,62 @@
 #include "libdrivers/hts221.h"
 #include <stdint.h>
 
-HAL_StatusTypeDef HTS221_Init(HTS221_Handle_t *pHandle, const HTS221_Config_t *pConfig) {
+Libdrivers_Status_t HTS221_Init(HTS221_Handle_t *pHandle, const HTS221_Config_t *pConfig) {
 
     // The return type from writing to the register
-    HAL_StatusTypeDef status;
+    Libdrivers_Status_t status;
 
     // Write to CTRL_REG 1->5
     status = HTS221_WriteReg(pHandle, HTS221_REG_CTRL_REG1, pConfig->CtrlReg1);
-    if (status != HAL_OK) {
+    if (status != LIBDRIVERS_OK) {
         return status;
     }
 
     status = HTS221_WriteReg(pHandle, HTS221_REG_CTRL_REG2, pConfig->CtrlReg2);
-    if (status != HAL_OK) {
+    if (status != LIBDRIVERS_OK) {
         return status;
     }
 
     status = HTS221_WriteReg(pHandle, HTS221_REG_CTRL_REG3, pConfig->CtrlReg3);
-    if (status != HAL_OK) {
+    if (status != LIBDRIVERS_OK) {
         return status;
     }
 
-    return HAL_OK;
+    return LIBDRIVERS_OK;
 }
 
-HAL_StatusTypeDef HTS221_ReadReg(HTS221_Handle_t *pHandle, uint8_t RegAddress, uint8_t *pBuffer,
-                                 uint16_t Length) {
+Libdrivers_Status_t HTS221_ReadReg(HTS221_Handle_t *pHandle, uint8_t RegAddress, uint8_t *pBuffer,
+                                   uint16_t Length) {
 
     // Set bit 7 (auto-increment bit) to enable multi-byte reads
     uint8_t ActualAddress = RegAddress | HTS221_AUTO_INCREMENT_BIT;
 
-    // Call Mem_Read from the STM32 HAL library
-    // TODO: Need to make this vendor agnostic but for now it works for what I need
-    return HAL_I2C_Mem_Read(pHandle->hi2c, HTS221_I2C_ADDR, ActualAddress, I2C_MEMADD_SIZE_8BIT,
-                            pBuffer, Length, HAL_MAX_DELAY);
+    // Pass the ReadReg arguments to the bus read function
+    return pHandle->bus.read(pHandle->bus.ctx, ActualAddress, pBuffer, Length);
 }
 
-HAL_StatusTypeDef HTS221_WriteReg(HTS221_Handle_t *pHandle, uint8_t RegAddress, uint8_t Value) {
+Libdrivers_Status_t HTS221_WriteReg(HTS221_Handle_t *pHandle, uint8_t RegAddress, uint8_t Value) {
 
-    // Call Mem_Write from the STM32 HAL library
-    // TODO: Need to make this vendor agnostic but for now it works for what I need
-    return HAL_I2C_Mem_Write(pHandle->hi2c, HTS221_I2C_ADDR, RegAddress, I2C_MEMADD_SIZE_8BIT,
-                             &Value, 1, HAL_MAX_DELAY);
+    // Pass the WriteReg arguments to the bus write function
+    return pHandle->bus.write(pHandle->bus.ctx, RegAddress, &Value, 1);
 }
 
-HAL_StatusTypeDef HTS221_ReadCalibration(HTS221_Handle_t *pHandle) {
+Libdrivers_Status_t HTS221_ReadCalibration(HTS221_Handle_t *pHandle) {
 
     // The byte we are about to read
     uint8_t CalibrationByte;
 
     // The return type of reading the register
-    HAL_StatusTypeDef status;
+    Libdrivers_Status_t status;
 
     status = HTS221_ReadReg(pHandle, HTS221_REG_H0_RH_X2, &CalibrationByte, 1);
-    if (status != HAL_OK) {
+    if (status != LIBDRIVERS_OK) {
         return status;
     }
     pHandle->H0_rH_x2 = CalibrationByte;
 
     status = HTS221_ReadReg(pHandle, HTS221_REG_H1_RH_X2, &CalibrationByte, 1);
-    if (status != HAL_OK) {
+    if (status != LIBDRIVERS_OK) {
         return status;
     }
     pHandle->H1_rH_x2 = CalibrationByte;
@@ -75,12 +71,12 @@ HAL_StatusTypeDef HTS221_ReadCalibration(HTS221_Handle_t *pHandle) {
     uint8_t T0Msb;
 
     status = HTS221_ReadReg(pHandle, HTS221_REG_T0_DEGC_X8, &T0Lsb, 1);
-    if (status != HAL_OK) {
+    if (status != LIBDRIVERS_OK) {
         return status;
     }
 
     status = HTS221_ReadReg(pHandle, HTS221_REG_T0_T1_MSB, &T0Msb, 1);
-    if (status != HAL_OK) {
+    if (status != LIBDRIVERS_OK) {
         return status;
     }
 
@@ -103,12 +99,12 @@ HAL_StatusTypeDef HTS221_ReadCalibration(HTS221_Handle_t *pHandle) {
     uint8_t T1Msb;
 
     status = HTS221_ReadReg(pHandle, HTS221_REG_T1_DEGC_X8, &T1Lsb, 1);
-    if (status != HAL_OK) {
+    if (status != LIBDRIVERS_OK) {
         return status;
     }
 
     status = HTS221_ReadReg(pHandle, HTS221_REG_T0_T1_MSB, &T1Msb, 1);
-    if (status != HAL_OK) {
+    if (status != LIBDRIVERS_OK) {
         return status;
     }
 
@@ -127,7 +123,7 @@ HAL_StatusTypeDef HTS221_ReadCalibration(HTS221_Handle_t *pHandle) {
     int16_t out;
 
     status = HTS221_ReadReg(pHandle, HTS221_REG_H0_T0_OUT_L, buffer, 2);
-    if (status != HAL_OK) {
+    if (status != LIBDRIVERS_OK) {
         return status;
     }
 
@@ -135,7 +131,7 @@ HAL_StatusTypeDef HTS221_ReadCalibration(HTS221_Handle_t *pHandle) {
     pHandle->H0_T0_OUT = out;
 
     status = HTS221_ReadReg(pHandle, HTS221_REG_H1_T0_OUT_L, buffer, 2);
-    if (status != HAL_OK) {
+    if (status != LIBDRIVERS_OK) {
         return status;
     }
 
@@ -143,7 +139,7 @@ HAL_StatusTypeDef HTS221_ReadCalibration(HTS221_Handle_t *pHandle) {
     pHandle->H1_T0_OUT = out;
 
     status = HTS221_ReadReg(pHandle, HTS221_REG_T0_OUT_L, buffer, 2);
-    if (status != HAL_OK) {
+    if (status != LIBDRIVERS_OK) {
         return status;
     }
 
@@ -151,20 +147,20 @@ HAL_StatusTypeDef HTS221_ReadCalibration(HTS221_Handle_t *pHandle) {
     pHandle->T0_OUT = out;
 
     status = HTS221_ReadReg(pHandle, HTS221_REG_T1_OUT_L, buffer, 2);
-    if (status != HAL_OK) {
+    if (status != LIBDRIVERS_OK) {
         return status;
     }
 
     out = (buffer[1] << 8) | buffer[0];
     pHandle->T1_OUT = out;
 
-    return HAL_OK;
+    return LIBDRIVERS_OK;
 }
 
-HAL_StatusTypeDef HTS221_ReadRawOutput(HTS221_Handle_t *pHandle) {
+Libdrivers_Status_t HTS221_ReadRawOutput(HTS221_Handle_t *pHandle) {
 
     // The return type of reading the register
-    HAL_StatusTypeDef status;
+    Libdrivers_Status_t status;
 
     // Buffer to hold the 2 bytes for the _OUT registers
     uint8_t buffer[2];
@@ -172,7 +168,7 @@ HAL_StatusTypeDef HTS221_ReadRawOutput(HTS221_Handle_t *pHandle) {
     int16_t out;
 
     status = HTS221_ReadReg(pHandle, HTS221_REG_HUMIDITY_OUT_L, buffer, 2);
-    if (status != HAL_OK) {
+    if (status != LIBDRIVERS_OK) {
         return status;
     }
 
@@ -180,31 +176,34 @@ HAL_StatusTypeDef HTS221_ReadRawOutput(HTS221_Handle_t *pHandle) {
     pHandle->H_OUT = out;
 
     status = HTS221_ReadReg(pHandle, HTS221_REG_TEMP_OUT_L, buffer, 2);
-    if (status != HAL_OK) {
+    if (status != LIBDRIVERS_OK) {
         return status;
     }
 
     out = (buffer[1] << 8) | buffer[0];
     pHandle->T_OUT = out;
 
-    return HAL_OK;
+    return LIBDRIVERS_OK;
 }
 
-bool HTS221_CheckWhoAmI(HTS221_Handle_t *pHandle) {
+Libdrivers_Status_t HTS221_CheckWhoAmI(HTS221_Handle_t *pHandle) {
 
-    // The byte we are about to read and where data will be written to
+    // Byte to write the data from the WHO_AM_I register to
     uint8_t WhoAmIByte;
 
-    // Call ReadReg to read the data from the register
-    HAL_StatusTypeDef status = HTS221_ReadReg(pHandle, HTS221_REG_WHO_AM_I, &WhoAmIByte, 1);
-
-    // If the mem read didnt return good data or errored out, dont try to compare and just return
-    // early
-    if (status != HAL_OK) {
-        return false;
+    // Read the WHO_AM_I register (0x0F)
+    Libdrivers_Status_t status = HTS221_ReadReg(pHandle, HTS221_REG_WHO_AM_I, &WhoAmIByte, 1);
+    if (status != LIBDRIVERS_OK) {
+        return status; // Propagate the transport error
     }
 
-    return WhoAmIByte == HTS221_WHO_AM_I_VALUE;
+    // Read succeeded. Check the ID
+    if (WhoAmIByte != HTS221_WHO_AM_I_VALUE) {
+        return LIBDRIVERS_ERR_ID;
+    }
+
+    // Correct chip. Return OK
+    return LIBDRIVERS_OK;
 }
 
 float HTS221_ReadTemperature(HTS221_Handle_t *pHandle) {
@@ -212,8 +211,8 @@ float HTS221_ReadTemperature(HTS221_Handle_t *pHandle) {
     float T0_degC = pHandle->T0_degC_x8 / 8.0f;
     float T1_degC = pHandle->T1_degC_x8 / 8.0f;
 
-    HAL_StatusTypeDef status = HTS221_ReadRawOutput(pHandle);
-    if (status != HAL_OK) {
+    Libdrivers_Status_t status = HTS221_ReadRawOutput(pHandle);
+    if (status != LIBDRIVERS_OK) {
         temp = -999.0f; // sentinel: read failed, ignore this value
     } else {
         temp = T0_degC + (pHandle->T_OUT - pHandle->T0_OUT) * (T1_degC - T0_degC) /
@@ -228,8 +227,8 @@ float HTS221_ReadHumidity(HTS221_Handle_t *pHandle) {
     float H0_rH = pHandle->H0_rH_x2 / 2.0f;
     float H1_rH = pHandle->H1_rH_x2 / 2.0f;
 
-    HAL_StatusTypeDef status = HTS221_ReadRawOutput(pHandle);
-    if (status != HAL_OK) {
+    Libdrivers_Status_t status = HTS221_ReadRawOutput(pHandle);
+    if (status != LIBDRIVERS_OK) {
         humidity = -999.0f; // sentinel: read failed, ignore this value
     } else {
         humidity = H0_rH + (pHandle->H_OUT - pHandle->H0_T0_OUT) * (H1_rH - H0_rH) /

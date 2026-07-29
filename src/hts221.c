@@ -1,4 +1,4 @@
-#include "hts221.h"
+#include "libdrivers/hts221.h"
 #include <stdint.h>
 
 HAL_StatusTypeDef HTS221_Init(HTS221_Handle_t *pHandle, const HTS221_Config_t *pConfig) {

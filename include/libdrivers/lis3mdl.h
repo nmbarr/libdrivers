@@ -1,7 +1,7 @@
 #ifndef LIS3MDL_H
 #define LIS3MDL_H
 
-#include "bus.h"
+#include "libdrivers/bus.h"
 #include <stdint.h>
 
 // Register addresses

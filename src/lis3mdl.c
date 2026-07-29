@@ -1,4 +1,4 @@
-#include "lis3mdl.h"
+#include "libdrivers/lis3mdl.h"
 #include <stdint.h>
 
 Libdrivers_Status_t LIS3MDL_Init(LIS3MDL_Handle_t *pHandle, const LIS3MDL_Config_t *pConfig) {

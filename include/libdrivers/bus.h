@@ -31,4 +31,4 @@ typedef struct {
                // handle (static lifetime), because the driver calls back through it on every read
 } Libdrivers_Bus_t;
 
-#endif // LIBDRIVERS_BUS_Hread
+#endif // LIBDRIVERS_BUS_H

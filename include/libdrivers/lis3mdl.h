@@ -1,13 +1,8 @@
 #ifndef LIS3MDL_H
 #define LIS3MDL_H
 
-#include "stm32l4xx_hal.h"
-#include "stm32l4xx_hal_def.h"
-#include <stdbool.h>
+#include "bus.h"
 #include <stdint.h>
-
-// LIS3MDL I2C Address (0x1E << 1)
-#define LIS3MDL_I2C_ADDR 0x3C
 
 // Register addresses
 #define LIS3MDL_REG_OFFSET_X_L_M 0x05
@@ -51,7 +46,7 @@
 
 // Struct to hold I2C information for the STM32 library
 typedef struct {
-    I2C_HandleTypeDef *hi2c;
+    Libdrivers_Bus_t bus;
 } LIS3MDL_Handle_t;
 
 // Struct to hold the bytes for each CTRL_REG
@@ -71,22 +66,22 @@ typedef struct {
 } LIS3MDL_AxisData_t;
 
 // Initialization function
-HAL_StatusTypeDef LIS3MDL_Init(LIS3MDL_Handle_t *pHandle, const LIS3MDL_Config_t *pConfig);
+Libdrivers_Status_t LIS3MDL_Init(LIS3MDL_Handle_t *pHandle, const LIS3MDL_Config_t *pConfig);
 
 // Function to read a register given a register address
-HAL_StatusTypeDef LIS3MDL_ReadReg(LIS3MDL_Handle_t *pHandle, uint8_t RegAddress, uint8_t *pBuffer,
-                                  uint16_t Length);
+Libdrivers_Status_t LIS3MDL_ReadReg(LIS3MDL_Handle_t *pHandle, uint8_t RegAddress, uint8_t *pBuffer,
+                                    uint16_t Length);
 
 // Function to write to a register given a register address
-HAL_StatusTypeDef LIS3MDL_WriteReg(LIS3MDL_Handle_t *pHandle, uint8_t RegAddress, uint8_t Value);
+Libdrivers_Status_t LIS3MDL_WriteReg(LIS3MDL_Handle_t *pHandle, uint8_t RegAddress, uint8_t Value);
 
 // Function to read the hard-iron offset registers
-HAL_StatusTypeDef LIS3MDL_ReadHardIronOffset(LIS3MDL_Handle_t *pHandle, int16_t *pOffsetXYZ);
+Libdrivers_Status_t LIS3MDL_ReadHardIronOffset(LIS3MDL_Handle_t *pHandle, int16_t *pOffsetXYZ);
 
 // Function to read the raw ADC bytes from the XYZ axis registers
-HAL_StatusTypeDef LIS3MDL_ReadRaw(LIS3MDL_Handle_t *pHandle, LIS3MDL_AxisData_t *pData);
+Libdrivers_Status_t LIS3MDL_ReadRaw(LIS3MDL_Handle_t *pHandle, LIS3MDL_AxisData_t *pData);
 
 // Function to verify the WHO_AM_I register returns the correct data
-bool LIS3MDL_CheckWhoAmI(LIS3MDL_Handle_t *pHandle);
+Libdrivers_Status_t LIS3MDL_CheckWhoAmI(LIS3MDL_Handle_t *pHandle);
 
 #endif // LIS3MDL_H

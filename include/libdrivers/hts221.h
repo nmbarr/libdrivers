@@ -4,6 +4,16 @@
 #include "libdrivers/bus.h"
 #include <stdint.h>
 
+/**
+ * @file hts221.h
+ * @brief Driver for the ST HTS221 humidity + temperature sensor (register bus).
+ *
+ * Speaks to the device through a Libdrivers_Bus_t transport, so the driver is
+ * HAL-free. Temperature and humidity are computed from raw ADC counts using
+ * the factory calibration; call HTS221_ReadCalibration() once after init
+ * before the calibrated float readers will return meaningful values.
+ */
+
 // Register addresses
 #define HTS221_REG_WHO_AM_I       0x0F
 
@@ -48,51 +58,123 @@
 // Auto-increment bit (bit 7) - OR with register address for multi-byte reads
 #define HTS221_AUTO_INCREMENT_BIT 0x80
 
-// Struct to hold I2C and calibration information
+/**
+ * @brief HTS221 device handle.
+ *
+ * Holds the transport by value plus the factory calibration coefficients and
+ * the most recent raw samples. Initialize @c bus (via a port) before use, and
+ * populate the calibration fields with HTS221_ReadCalibration().
+ */
 typedef struct {
-    Libdrivers_Bus_t bus;
-    uint16_t T0_degC_x8;
-    uint16_t T1_degC_x8;
-    uint8_t H0_rH_x2;
-    uint8_t H1_rH_x2;
-    int16_t H0_T0_OUT;
-    int16_t H1_T0_OUT;
-    int16_t T0_OUT;
-    int16_t T1_OUT;
-    int16_t H_OUT;
-    int16_t T_OUT;
+    Libdrivers_Bus_t bus; /**< Register-bus transport for this device. */
+    uint16_t T0_degC_x8;  /**< Temp calibration point T0, in units of 1/8 degC. */
+    uint16_t T1_degC_x8;  /**< Temp calibration point T1, in units of 1/8 degC. */
+    uint8_t H0_rH_x2;     /**< Humidity calibration point H0, in units of 1/2 %RH. */
+    uint8_t H1_rH_x2;     /**< Humidity calibration point H1, in units of 1/2 %RH. */
+    int16_t H0_T0_OUT;    /**< Raw humidity ADC at calibration point H0. */
+    int16_t H1_T0_OUT;    /**< Raw humidity ADC at calibration point H1. */
+    int16_t T0_OUT;       /**< Raw temperature ADC at calibration point T0. */
+    int16_t T1_OUT;       /**< Raw temperature ADC at calibration point T1. */
+    int16_t H_OUT;        /**< Most recent raw humidity sample. */
+    int16_t T_OUT;        /**< Most recent raw temperature sample. */
 } HTS221_Handle_t;
 
-// Struct to hold the bytes for each CTRL_REG
+/**
+ * @brief Values for the three control registers, written by HTS221_Init().
+ */
 typedef struct {
-    uint8_t CtrlReg1;
-    uint8_t CtrlReg2;
-    uint8_t CtrlReg3;
+    uint8_t CtrlReg1; /**< CTRL_REG1 (0x20). */
+    uint8_t CtrlReg2; /**< CTRL_REG2 (0x21). */
+    uint8_t CtrlReg3; /**< CTRL_REG3 (0x22). */
 } HTS221_Config_t;
 
-// Initialization function
+/**
+ * @brief Configure the device by writing CTRL_REG1..3 from @p pConfig.
+ *
+ * @param pHandle Handle with an initialized bus.
+ * @param pConfig Control-register values to write.
+ * @return LIBDRIVERS_OK on success, or a transport error.
+ */
 Libdrivers_Status_t HTS221_Init(HTS221_Handle_t *pHandle, const HTS221_Config_t *pConfig);
 
-// Function to read a register given a register address
+/**
+ * @brief Read @p Length bytes starting at @p RegAddress.
+ *
+ * Sets the auto-increment bit so multi-byte reads walk consecutive registers.
+ *
+ * @param pHandle       Handle with an initialized bus.
+ * @param RegAddress    First register to read.
+ * @param[out] pBuffer  Destination buffer; must hold @p Length bytes.
+ * @param Length        Number of bytes to read.
+ * @return LIBDRIVERS_OK on success, or a transport error.
+ */
 Libdrivers_Status_t HTS221_ReadReg(HTS221_Handle_t *pHandle, uint8_t RegAddress, uint8_t *pBuffer,
                                    uint16_t Length);
 
-// Function to write to a register given a register address
+/**
+ * @brief Write a single byte to @p RegAddress.
+ *
+ * @param pHandle    Handle with an initialized bus.
+ * @param RegAddress Register to write.
+ * @param Value      Byte to write.
+ * @return LIBDRIVERS_OK on success, or a transport error.
+ */
 Libdrivers_Status_t HTS221_WriteReg(HTS221_Handle_t *pHandle, uint8_t RegAddress, uint8_t Value);
 
-// Function to read calibration registers
+/**
+ * @brief Read the factory calibration coefficients into the handle.
+ *
+ * Must be called once after init; the calibrated float readers depend on the
+ * coefficients it stores.
+ *
+ * @param pHandle Handle with an initialized bus.
+ * @return LIBDRIVERS_OK on success, or a transport error.
+ */
 Libdrivers_Status_t HTS221_ReadCalibration(HTS221_Handle_t *pHandle);
 
-// Function to read live raw output (temperature + humidity ADC counts)
+/**
+ * @brief Read the live raw humidity and temperature ADC counts into the handle.
+ *
+ * Updates HTS221_Handle_t::H_OUT and HTS221_Handle_t::T_OUT.
+ *
+ * @param pHandle Handle with an initialized bus.
+ * @return LIBDRIVERS_OK on success, or a transport error.
+ */
 Libdrivers_Status_t HTS221_ReadRawOutput(HTS221_Handle_t *pHandle);
 
-// Function to verify the WHO_AM_I register returns the correct data
+/**
+ * @brief Verify the WHO_AM_I register matches HTS221_WHO_AM_I_VALUE.
+ *
+ * @param pHandle Handle with an initialized bus.
+ * @return LIBDRIVERS_OK if the ID matches; LIBDRIVERS_ERR_ID on mismatch;
+ *         otherwise a transport error.
+ */
 Libdrivers_Status_t HTS221_CheckWhoAmI(HTS221_Handle_t *pHandle);
 
-// Function to read a calibrated temperature value in degrees C
+/**
+ * @brief Read a calibrated temperature in degrees Celsius.
+ *
+ * Takes a fresh raw sample and applies the stored calibration. Requires a
+ * prior HTS221_ReadCalibration().
+ *
+ * @param pHandle Handle with an initialized bus and loaded calibration.
+ * @return Temperature in degrees C, or the sentinel -999.0f if the underlying
+ *         raw read failed.
+ * @warning Returns -999.0f (not a status code) on read failure; check for it.
+ */
 float HTS221_ReadTemperature(HTS221_Handle_t *pHandle);
 
-// Function to read a calibrated relative humidity value in %RH
+/**
+ * @brief Read a calibrated relative humidity in %RH.
+ *
+ * Takes a fresh raw sample and applies the stored calibration. Requires a
+ * prior HTS221_ReadCalibration().
+ *
+ * @param pHandle Handle with an initialized bus and loaded calibration.
+ * @return Relative humidity in %RH, or the sentinel -999.0f if the underlying
+ *         raw read failed.
+ * @warning Returns -999.0f (not a status code) on read failure; check for it.
+ */
 float HTS221_ReadHumidity(HTS221_Handle_t *pHandle);
 
 #endif // HTS221_H

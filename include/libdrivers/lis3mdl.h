@@ -4,6 +4,15 @@
 #include "libdrivers/bus.h"
 #include <stdint.h>
 
+/**
+ * @file lis3mdl.h
+ * @brief Driver for the ST LIS3MDL 3-axis magnetometer (register bus).
+ *
+ * Speaks to the device through a Libdrivers_Bus_t transport, so the driver
+ * is HAL-free: a port supplies the actual I2C/SPI access. Register reads set
+ * the auto-increment bit internally for multi-byte transfers.
+ */
+
 // Register addresses
 #define LIS3MDL_REG_OFFSET_X_L_M 0x05
 #define LIS3MDL_REG_OFFSET_X_H_M 0x06
@@ -44,44 +53,96 @@
 // Auto-increment bit (bit 7) - OR with register address for multi-byte reads
 #define LIS3MDL_AUTO_INCREMENT_BIT 0x80
 
-// Struct to hold I2C information for the STM32 library
+/**
+ * @brief LIS3MDL device handle.
+ *
+ * Holds the transport by value; initialize @c bus (via a port) before
+ * calling any driver function.
+ */
 typedef struct {
-    Libdrivers_Bus_t bus;
+    Libdrivers_Bus_t bus; /**< Register-bus transport for this device. */
 } LIS3MDL_Handle_t;
 
-// Struct to hold the bytes for each CTRL_REG
+/**
+ * @brief Values for the five control registers, written by LIS3MDL_Init().
+ */
 typedef struct {
-    uint8_t CtrlReg1;
-    uint8_t CtrlReg2;
-    uint8_t CtrlReg3;
-    uint8_t CtrlReg4;
-    uint8_t CtrlReg5;
+    uint8_t CtrlReg1; /**< CTRL_REG1 (0x20). */
+    uint8_t CtrlReg2; /**< CTRL_REG2 (0x21). */
+    uint8_t CtrlReg3; /**< CTRL_REG3 (0x22). */
+    uint8_t CtrlReg4; /**< CTRL_REG4 (0x23). */
+    uint8_t CtrlReg5; /**< CTRL_REG5 (0x24). */
 } LIS3MDL_Config_t;
 
-// Struct to store sensor XYZ axis data
+/**
+ * @brief Signed 16-bit per-axis sample.
+ */
 typedef struct {
-    int16_t X;
-    int16_t Y;
-    int16_t Z;
+    int16_t X; /**< X axis. */
+    int16_t Y; /**< Y axis. */
+    int16_t Z; /**< Z axis. */
 } LIS3MDL_AxisData_t;
 
-// Initialization function
+/**
+ * @brief Configure the device by writing CTRL_REG1..5 from @p pConfig.
+ *
+ * Stops at the first failing write and returns its status.
+ *
+ * @param pHandle Handle with an initialized bus.
+ * @param pConfig Control-register values to write.
+ * @return LIBDRIVERS_OK on success, or a transport error.
+ */
 Libdrivers_Status_t LIS3MDL_Init(LIS3MDL_Handle_t *pHandle, const LIS3MDL_Config_t *pConfig);
 
-// Function to read a register given a register address
+/**
+ * @brief Read @p Length bytes starting at @p RegAddress.
+ *
+ * Sets the auto-increment bit so multi-byte reads walk consecutive registers.
+ *
+ * @param pHandle       Handle with an initialized bus.
+ * @param RegAddress    First register to read.
+ * @param[out] pBuffer  Destination buffer; must hold @p Length bytes.
+ * @param Length        Number of bytes to read.
+ * @return LIBDRIVERS_OK on success, or a transport error.
+ */
 Libdrivers_Status_t LIS3MDL_ReadReg(LIS3MDL_Handle_t *pHandle, uint8_t RegAddress, uint8_t *pBuffer,
                                     uint16_t Length);
 
-// Function to write to a register given a register address
+/**
+ * @brief Write a single byte to @p RegAddress.
+ *
+ * @param pHandle    Handle with an initialized bus.
+ * @param RegAddress Register to write.
+ * @param Value      Byte to write.
+ * @return LIBDRIVERS_OK on success, or a transport error.
+ */
 Libdrivers_Status_t LIS3MDL_WriteReg(LIS3MDL_Handle_t *pHandle, uint8_t RegAddress, uint8_t Value);
 
-// Function to read the hard-iron offset registers
+/**
+ * @brief Read the three hard-iron offset registers.
+ *
+ * @param pHandle          Handle with an initialized bus.
+ * @param[out] pOffsetXYZ  Array of at least 3 int16_t; filled with X, Y, Z.
+ * @return LIBDRIVERS_OK on success, or a transport error.
+ */
 Libdrivers_Status_t LIS3MDL_ReadHardIronOffset(LIS3MDL_Handle_t *pHandle, int16_t *pOffsetXYZ);
 
-// Function to read the raw ADC bytes from the XYZ axis registers
+/**
+ * @brief Read the raw ADC counts from the X, Y, Z output registers.
+ *
+ * @param pHandle     Handle with an initialized bus.
+ * @param[out] pData  Filled with the signed per-axis samples.
+ * @return LIBDRIVERS_OK on success, or a transport error.
+ */
 Libdrivers_Status_t LIS3MDL_ReadRaw(LIS3MDL_Handle_t *pHandle, LIS3MDL_AxisData_t *pData);
 
-// Function to verify the WHO_AM_I register returns the correct data
+/**
+ * @brief Verify the WHO_AM_I register matches LIS3MDL_WHO_AM_I_VALUE.
+ *
+ * @param pHandle Handle with an initialized bus.
+ * @return LIBDRIVERS_OK if the ID matches; LIBDRIVERS_ERR_ID on mismatch;
+ *         otherwise a transport error.
+ */
 Libdrivers_Status_t LIS3MDL_CheckWhoAmI(LIS3MDL_Handle_t *pHandle);
 
 #endif // LIS3MDL_H

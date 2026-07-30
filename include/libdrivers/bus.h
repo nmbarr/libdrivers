@@ -3,32 +3,81 @@
 
 #include <stdint.h>
 
-// Bus status enum
+/**
+ * @file bus.h
+ * @brief Vendor-agnostic register-bus transport contract.
+ *
+ * The keystone of the HAL-free core. A register-based device driver
+ * (I2C/SPI: HTS221, LIS3MDL, LSM6DSL) depends on this interface; a port
+ * implements the hooks against a real peripheral (e.g. the STM32 HAL) and
+ * the core never sees a vendor header. Also defines Libdrivers_Status_t,
+ * the single status type shared by every transport (see onewire.h).
+ */
+
+/**
+ * @brief Result of a bus operation, shared across all drivers and transports.
+ */
 typedef enum {
-    LIBDRIVERS_OK,         // Success
-    LIBDRIVERS_ERR_BUS,    // Transport failed (the read/write hook returned an error)
-    LIBDRIVERS_ERR_ARG,    // Bad argument / missing capability (e.g. needed delay but it was NULL)
-    LIBDRIVERS_ERR_ID,     // WHO_AM_I mismatch (chip responded, wrong identity)
-    LIBDRIVERS_ERR_TIMEOUT // Operation timed out
+    LIBDRIVERS_OK,          /**< Success. */
+    LIBDRIVERS_ERR_BUS,     /**< Transport failed (a read/write hook errored). */
+    LIBDRIVERS_ERR_ARG,     /**< Bad argument / missing capability (e.g. a delay
+                                 was needed but the hook was NULL). */
+    LIBDRIVERS_ERR_ID,      /**< WHO_AM_I mismatch (chip responded, wrong identity). */
+    LIBDRIVERS_ERR_TIMEOUT  /**< Operation timed out. */
 } Libdrivers_Status_t;
 
-// Function-pointer types
-// reg is the plain register address. auto-increment occurs in the sensors driver
-// Return LIBDRIVERS_OK on success, LIBDRIVERS_ERR_BUS (or ERR_TIMEOUT) on failure
+/**
+ * @brief Read @p len bytes starting at register @p reg.
+ *
+ * @p reg is the plain register address; any auto-increment bit is applied
+ * by the device driver, not the port.
+ *
+ * @param ctx       Opaque port context (see Libdrivers_Bus_t::ctx).
+ * @param reg       Register address to read from.
+ * @param[out] buf  Destination buffer; must hold at least @p len bytes.
+ * @param len       Number of bytes to read.
+ * @return LIBDRIVERS_OK on success, LIBDRIVERS_ERR_BUS or
+ *         LIBDRIVERS_ERR_TIMEOUT on failure.
+ */
 typedef Libdrivers_Status_t (*Libdrivers_read_fn)(void *ctx, uint8_t reg, uint8_t *buf,
                                                   uint16_t len);
+
+/**
+ * @brief Write @p len bytes starting at register @p reg.
+ *
+ * @param ctx      Opaque port context.
+ * @param reg      Register address to write to.
+ * @param buf      Source buffer of @p len bytes.
+ * @param len      Number of bytes to write.
+ * @return LIBDRIVERS_OK on success, LIBDRIVERS_ERR_BUS or
+ *         LIBDRIVERS_ERR_TIMEOUT on failure.
+ */
 typedef Libdrivers_Status_t (*Libdrivers_write_fn)(void *ctx, uint8_t reg, const uint8_t *buf,
                                                    uint16_t len);
+
+/**
+ * @brief Block for @p ms milliseconds.
+ *
+ * @param ctx Opaque port context.
+ * @param ms  Delay duration in milliseconds.
+ */
 typedef void (*Libdrivers_delay_fn)(void *ctx, uint32_t ms);
 
-// Struct to store function pointers and types
+/**
+ * @brief A register bus: read/write/delay hooks plus an opaque port context.
+ *
+ * A port fills this in and a device driver holds one by value, calling
+ * through the hooks.
+ */
 typedef struct {
-    Libdrivers_read_fn read;
-    Libdrivers_write_fn write;
-    Libdrivers_delay_fn delay; // delay can be NULL. if a driver needs delay and it is NULL it
-                               // returns LIBDRIVERS_ERR_ARG
-    void *ctx; // opaque. core never dereferences it. the app owns ctx and it must outlive the
-               // handle (static lifetime), because the driver calls back through it on every read
+    Libdrivers_read_fn read;   /**< Register read hook. */
+    Libdrivers_write_fn write; /**< Register write hook. */
+    Libdrivers_delay_fn delay; /**< Optional. May be NULL; a driver that needs a
+                                    delay while this is NULL returns
+                                    LIBDRIVERS_ERR_ARG rather than skipping it. */
+    void *ctx; /**< Opaque, port-owned. The core never dereferences it; the app
+                    owns it and it must outlive the handle (static lifetime),
+                    since the driver calls back through it on every access. */
 } Libdrivers_Bus_t;
 
 #endif // LIBDRIVERS_BUS_H

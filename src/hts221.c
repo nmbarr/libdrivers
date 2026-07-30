@@ -206,34 +206,32 @@ Libdrivers_Status_t HTS221_CheckWhoAmI(HTS221_Handle_t *pHandle) {
     return LIBDRIVERS_OK;
 }
 
-float HTS221_ReadTemperature(HTS221_Handle_t *pHandle) {
-    float temp;
+Libdrivers_Status_t HTS221_ReadTemperature(HTS221_Handle_t *pHandle, float *pTemperature) {
     float T0_degC = pHandle->T0_degC_x8 / 8.0f;
     float T1_degC = pHandle->T1_degC_x8 / 8.0f;
 
     Libdrivers_Status_t status = HTS221_ReadRawOutput(pHandle);
     if (status != LIBDRIVERS_OK) {
-        temp = -999.0f; // sentinel: read failed, ignore this value
-    } else {
-        temp = T0_degC + (pHandle->T_OUT - pHandle->T0_OUT) * (T1_degC - T0_degC) /
-                             (pHandle->T1_OUT - pHandle->T0_OUT);
+        return status; // Leave *pTemperature untouched on failure
     }
 
-    return temp;
+    *pTemperature = T0_degC + (pHandle->T_OUT - pHandle->T0_OUT) * (T1_degC - T0_degC) /
+                                  (pHandle->T1_OUT - pHandle->T0_OUT);
+
+    return LIBDRIVERS_OK;
 }
 
-float HTS221_ReadHumidity(HTS221_Handle_t *pHandle) {
-    float humidity;
+Libdrivers_Status_t HTS221_ReadHumidity(HTS221_Handle_t *pHandle, float *pHumidity) {
     float H0_rH = pHandle->H0_rH_x2 / 2.0f;
     float H1_rH = pHandle->H1_rH_x2 / 2.0f;
 
     Libdrivers_Status_t status = HTS221_ReadRawOutput(pHandle);
     if (status != LIBDRIVERS_OK) {
-        humidity = -999.0f; // sentinel: read failed, ignore this value
-    } else {
-        humidity = H0_rH + (pHandle->H_OUT - pHandle->H0_T0_OUT) * (H1_rH - H0_rH) /
-                               (pHandle->H1_T0_OUT - pHandle->H0_T0_OUT);
+        return status; // Leave *pHumidity untouched on failure
     }
 
-    return humidity;
+    *pHumidity = H0_rH + (pHandle->H_OUT - pHandle->H0_T0_OUT) * (H1_rH - H0_rH) /
+                             (pHandle->H1_T0_OUT - pHandle->H0_T0_OUT);
+
+    return LIBDRIVERS_OK;
 }

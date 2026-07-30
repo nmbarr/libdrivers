@@ -157,12 +157,12 @@ Libdrivers_Status_t HTS221_CheckWhoAmI(HTS221_Handle_t *pHandle);
  * Takes a fresh raw sample and applies the stored calibration. Requires a
  * prior HTS221_ReadCalibration().
  *
- * @param pHandle Handle with an initialized bus and loaded calibration.
- * @return Temperature in degrees C, or the sentinel -999.0f if the underlying
- *         raw read failed.
- * @warning Returns -999.0f (not a status code) on read failure; check for it.
+ * @param pHandle            Handle with an initialized bus and loaded calibration.
+ * @param[out] pTemperature  Written with the temperature in degrees C on
+ *                           success; left unchanged on failure.
+ * @return LIBDRIVERS_OK on success, or a transport error.
  */
-float HTS221_ReadTemperature(HTS221_Handle_t *pHandle);
+Libdrivers_Status_t HTS221_ReadTemperature(HTS221_Handle_t *pHandle, float *pTemperature);
 
 /**
  * @brief Read a calibrated relative humidity in %RH.
@@ -170,11 +170,11 @@ float HTS221_ReadTemperature(HTS221_Handle_t *pHandle);
  * Takes a fresh raw sample and applies the stored calibration. Requires a
  * prior HTS221_ReadCalibration().
  *
- * @param pHandle Handle with an initialized bus and loaded calibration.
- * @return Relative humidity in %RH, or the sentinel -999.0f if the underlying
- *         raw read failed.
- * @warning Returns -999.0f (not a status code) on read failure; check for it.
+ * @param pHandle         Handle with an initialized bus and loaded calibration.
+ * @param[out] pHumidity  Written with the relative humidity in %RH on success;
+ *                        left unchanged on failure.
+ * @return LIBDRIVERS_OK on success, or a transport error.
  */
-float HTS221_ReadHumidity(HTS221_Handle_t *pHandle);
+Libdrivers_Status_t HTS221_ReadHumidity(HTS221_Handle_t *pHandle, float *pHumidity);
 
 #endif // HTS221_H

@@ -86,21 +86,5 @@ Libdrivers_Status_t LIS3MDL_ReadRaw(LIS3MDL_Handle_t *pHandle, LIS3MDL_AxisData_
 }
 
 Libdrivers_Status_t LIS3MDL_CheckWhoAmI(LIS3MDL_Handle_t *pHandle) {
-
-    // Byte to write the data from the WHO_AM_I register to
-    uint8_t WhoAmIByte;
-
-    // Read the WHO_AM_I register (0x0F)
-    Libdrivers_Status_t status = LIS3MDL_ReadReg(pHandle, LIS3MDL_REG_WHO_AM_I, &WhoAmIByte, 1);
-    if (status != LIBDRIVERS_OK) {
-        return status; // Propagate the transport error
-    }
-
-    // Read succeeded. Check the ID
-    if (WhoAmIByte != LIS3MDL_WHO_AM_I_VALUE) {
-        return LIBDRIVERS_ERR_ID;
-    }
-
-    // Correct chip. Return OK
-    return LIBDRIVERS_OK;
+    return Libdrivers_Bus_CheckWhoAmI(&pHandle->bus, LIS3MDL_REG_WHO_AM_I, LIS3MDL_WHO_AM_I_VALUE);
 }

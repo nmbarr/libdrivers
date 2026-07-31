@@ -94,23 +94,7 @@ Libdrivers_Status_t HTS221_ReadRawOutput(HTS221_Handle_t *pHandle) {
 }
 
 Libdrivers_Status_t HTS221_CheckWhoAmI(HTS221_Handle_t *pHandle) {
-
-    // Byte to write the data from the WHO_AM_I register to
-    uint8_t WhoAmIByte;
-
-    // Read the WHO_AM_I register (0x0F)
-    Libdrivers_Status_t status = HTS221_ReadReg(pHandle, HTS221_REG_WHO_AM_I, &WhoAmIByte, 1);
-    if (status != LIBDRIVERS_OK) {
-        return status; // Propagate the transport error
-    }
-
-    // Read succeeded. Check the ID
-    if (WhoAmIByte != HTS221_WHO_AM_I_VALUE) {
-        return LIBDRIVERS_ERR_ID;
-    }
-
-    // Correct chip. Return OK
-    return LIBDRIVERS_OK;
+    return Libdrivers_Bus_CheckWhoAmI(&pHandle->bus, HTS221_REG_WHO_AM_I, HTS221_WHO_AM_I_VALUE);
 }
 
 Libdrivers_Status_t HTS221_ReadTemperature(HTS221_Handle_t *pHandle, float *pTemperature) {

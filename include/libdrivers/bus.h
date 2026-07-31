@@ -18,12 +18,12 @@
  * @brief Result of a bus operation, shared across all drivers and transports.
  */
 typedef enum {
-    LIBDRIVERS_OK,          /**< Success. */
-    LIBDRIVERS_ERR_BUS,     /**< Transport failed (a read/write hook errored). */
-    LIBDRIVERS_ERR_ARG,     /**< Bad argument / missing capability (e.g. a delay
-                                 was needed but the hook was NULL). */
-    LIBDRIVERS_ERR_ID,      /**< WHO_AM_I mismatch (chip responded, wrong identity). */
-    LIBDRIVERS_ERR_TIMEOUT  /**< Operation timed out. */
+    LIBDRIVERS_OK,         /**< Success. */
+    LIBDRIVERS_ERR_BUS,    /**< Transport failed (a read/write hook errored). */
+    LIBDRIVERS_ERR_ARG,    /**< Bad argument / missing capability (e.g. a delay
+                                was needed but the hook was NULL). */
+    LIBDRIVERS_ERR_ID,     /**< WHO_AM_I mismatch (chip responded, wrong identity). */
+    LIBDRIVERS_ERR_TIMEOUT /**< Operation timed out. */
 } Libdrivers_Status_t;
 
 /**
@@ -75,9 +75,27 @@ typedef struct {
     Libdrivers_delay_fn delay; /**< Optional. May be NULL; a driver that needs a
                                     delay while this is NULL returns
                                     LIBDRIVERS_ERR_ARG rather than skipping it. */
-    void *ctx; /**< Opaque, port-owned. The core never dereferences it; the app
-                    owns it and it must outlive the handle (static lifetime),
-                    since the driver calls back through it on every access. */
+    void *ctx;                 /**< Opaque, port-owned. The core never dereferences it; the app
+                                    owns it and it must outlive the handle (static lifetime),
+                                    since the driver calls back through it on every access. */
 } Libdrivers_Bus_t;
+
+/**
+ * @brief Read a one-byte identity register and compare it to an expected value.
+ *
+ * Shared WHO_AM_I helper for register-bus sensors. Reads a single byte from
+ * @p reg through @p bus and checks it against @p expected. Uses the bus read
+ * hook directly, so no auto-increment bit applies (the read is one byte).
+ * Each sensor's public @c XXX_CheckWhoAmI wraps this with its own register and
+ * ID constant.
+ *
+ * @param bus       Initialized register bus.
+ * @param reg       Identity register address (e.g. WHO_AM_I).
+ * @param expected  Expected register value for this chip.
+ * @return LIBDRIVERS_OK if the byte matches; LIBDRIVERS_ERR_ID on mismatch;
+ *         otherwise the transport error from the read.
+ */
+Libdrivers_Status_t Libdrivers_Bus_CheckWhoAmI(Libdrivers_Bus_t *bus, uint8_t reg,
+                                               uint8_t expected);
 
 #endif // LIBDRIVERS_BUS_H

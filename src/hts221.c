@@ -1,5 +1,4 @@
 #include "libdrivers/hts221.h"
-#include "libdrivers/bus.h"
 #include <stdint.h>
 
 Libdrivers_Status_t HTS221_Init(HTS221_Handle_t *pHandle, const HTS221_Config_t *pConfig) {
@@ -7,7 +6,7 @@ Libdrivers_Status_t HTS221_Init(HTS221_Handle_t *pHandle, const HTS221_Config_t 
     // The return type from writing to the register
     Libdrivers_Status_t status;
 
-    // Write to CTRL_REG 1->5
+    // Write to CTRL_REG 1->3
     status = HTS221_WriteReg(pHandle, HTS221_REG_CTRL_REG1, pConfig->CtrlReg1);
     if (status != LIBDRIVERS_OK) {
         return status;
@@ -115,6 +114,7 @@ Libdrivers_Status_t HTS221_CheckWhoAmI(HTS221_Handle_t *pHandle) {
 }
 
 Libdrivers_Status_t HTS221_ReadTemperature(HTS221_Handle_t *pHandle, float *pTemperature) {
+
     float T0_degC = pHandle->T0_degC_x8 / 8.0f;
     float T1_degC = pHandle->T1_degC_x8 / 8.0f;
 
@@ -130,6 +130,7 @@ Libdrivers_Status_t HTS221_ReadTemperature(HTS221_Handle_t *pHandle, float *pTem
 }
 
 Libdrivers_Status_t HTS221_ReadHumidity(HTS221_Handle_t *pHandle, float *pHumidity) {
+
     float H0_rH = pHandle->H0_rH_x2 / 2.0f;
     float H1_rH = pHandle->H1_rH_x2 / 2.0f;
 

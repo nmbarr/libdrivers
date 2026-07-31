@@ -1,4 +1,5 @@
 #include "libdrivers/hts221.h"
+#include "libdrivers/bus.h"
 #include <stdint.h>
 
 Libdrivers_Status_t HTS221_Init(HTS221_Handle_t *pHandle, const HTS221_Config_t *pConfig) {
@@ -43,116 +44,32 @@ Libdrivers_Status_t HTS221_WriteReg(HTS221_Handle_t *pHandle, uint8_t RegAddress
 
 Libdrivers_Status_t HTS221_ReadCalibration(HTS221_Handle_t *pHandle) {
 
-    // The byte we are about to read
-    uint8_t CalibrationByte;
+    // Buffer to store data from all of the calibration registers
+    uint8_t cal[16];
 
-    // The return type of reading the register
-    Libdrivers_Status_t status;
-
-    status = HTS221_ReadReg(pHandle, HTS221_REG_H0_RH_X2, &CalibrationByte, 1);
-    if (status != LIBDRIVERS_OK) {
-        return status;
-    }
-    pHandle->H0_rH_x2 = CalibrationByte;
-
-    status = HTS221_ReadReg(pHandle, HTS221_REG_H1_RH_X2, &CalibrationByte, 1);
-    if (status != LIBDRIVERS_OK) {
-        return status;
-    }
-    pHandle->H1_rH_x2 = CalibrationByte;
-
-    // Need a 16-bit to store the 10-bit combined value
-    uint16_t T0DegC;
-
-    // Stores the LSB
-    uint8_t T0Lsb;
-
-    // Stores the MSB
-    uint8_t T0Msb;
-
-    status = HTS221_ReadReg(pHandle, HTS221_REG_T0_DEGC_X8, &T0Lsb, 1);
+    Libdrivers_Status_t status = HTS221_ReadReg(pHandle, HTS221_REG_H0_RH_X2, cal, sizeof(cal));
     if (status != LIBDRIVERS_OK) {
         return status;
     }
 
-    status = HTS221_ReadReg(pHandle, HTS221_REG_T0_T1_MSB, &T0Msb, 1);
-    if (status != LIBDRIVERS_OK) {
-        return status;
-    }
+    // T0 and T1's high bits share this one register; read it once, mask it twice.
+    uint8_t msb = cal[HTS221_REG_T0_T1_MSB - HTS221_REG_H0_RH_X2];
 
-    // Extract T0's MSB's from the byte (located at [1:0])
-    T0Msb &= HTS221_T0_MSB_MASK;
-
-    // Combine 8-bit LSB with 2-bit MSB
-    T0DegC = (T0Msb << 8) | T0Lsb;
-
-    // Update typedef with combined 10-bit value
-    pHandle->T0_degC_x8 = T0DegC;
-
-    // Need a 16-bit to store the 10-bit combined value
-    uint16_t T1DegC;
-
-    // Stores the LSB
-    uint8_t T1Lsb;
-
-    // Stores the MSB
-    uint8_t T1Msb;
-
-    status = HTS221_ReadReg(pHandle, HTS221_REG_T1_DEGC_X8, &T1Lsb, 1);
-    if (status != LIBDRIVERS_OK) {
-        return status;
-    }
-
-    status = HTS221_ReadReg(pHandle, HTS221_REG_T0_T1_MSB, &T1Msb, 1);
-    if (status != LIBDRIVERS_OK) {
-        return status;
-    }
-
-    // Extract T1's MSB's from the byte (located at [3:2])
-    T1Msb = (T1Msb & HTS221_T1_MSB_MASK) >> HTS221_T1_MSB_SHIFT;
-
-    // Combine 8-bit LSB with 2-bit MSB
-    T1DegC = (T1Msb << 8) | T1Lsb;
-
-    // Update typedef with combined 10-bit value
-    pHandle->T1_degC_x8 = T1DegC;
-
-    // Buffer to hold the 2 bytes for the _OUT registers
-    uint8_t buffer[2];
-
-    int16_t out;
-
-    status = HTS221_ReadReg(pHandle, HTS221_REG_H0_T0_OUT_L, buffer, 2);
-    if (status != LIBDRIVERS_OK) {
-        return status;
-    }
-
-    out = (buffer[1] << 8) | buffer[0];
-    pHandle->H0_T0_OUT = out;
-
-    status = HTS221_ReadReg(pHandle, HTS221_REG_H1_T0_OUT_L, buffer, 2);
-    if (status != LIBDRIVERS_OK) {
-        return status;
-    }
-
-    out = (buffer[1] << 8) | buffer[0];
-    pHandle->H1_T0_OUT = out;
-
-    status = HTS221_ReadReg(pHandle, HTS221_REG_T0_OUT_L, buffer, 2);
-    if (status != LIBDRIVERS_OK) {
-        return status;
-    }
-
-    out = (buffer[1] << 8) | buffer[0];
-    pHandle->T0_OUT = out;
-
-    status = HTS221_ReadReg(pHandle, HTS221_REG_T1_OUT_L, buffer, 2);
-    if (status != LIBDRIVERS_OK) {
-        return status;
-    }
-
-    out = (buffer[1] << 8) | buffer[0];
-    pHandle->T1_OUT = out;
+    // Each field's buffer index is (its register address - 0x30, the burst base).
+    pHandle->H0_rH_x2 = cal[HTS221_REG_H0_RH_X2 - HTS221_REG_H0_RH_X2];
+    pHandle->H1_rH_x2 = cal[HTS221_REG_H1_RH_X2 - HTS221_REG_H0_RH_X2];
+    pHandle->T0_degC_x8 = ((msb & HTS221_T0_MSB_MASK) << 8) |
+                          cal[HTS221_REG_T0_DEGC_X8 - HTS221_REG_H0_RH_X2];
+    pHandle->T1_degC_x8 = (((msb & HTS221_T1_MSB_MASK) >> HTS221_T1_MSB_SHIFT) << 8) |
+                          cal[HTS221_REG_T1_DEGC_X8 - HTS221_REG_H0_RH_X2];
+    pHandle->H0_T0_OUT = (cal[HTS221_REG_H0_T0_OUT_H - HTS221_REG_H0_RH_X2] << 8) |
+                         cal[HTS221_REG_H0_T0_OUT_L - HTS221_REG_H0_RH_X2];
+    pHandle->H1_T0_OUT = (cal[HTS221_REG_H1_T0_OUT_H - HTS221_REG_H0_RH_X2] << 8) |
+                         cal[HTS221_REG_H1_T0_OUT_L - HTS221_REG_H0_RH_X2];
+    pHandle->T0_OUT = (cal[HTS221_REG_T0_OUT_H - HTS221_REG_H0_RH_X2] << 8) |
+                      cal[HTS221_REG_T0_OUT_L - HTS221_REG_H0_RH_X2];
+    pHandle->T1_OUT = (cal[HTS221_REG_T1_OUT_H - HTS221_REG_H0_RH_X2] << 8) |
+                      cal[HTS221_REG_T1_OUT_L - HTS221_REG_H0_RH_X2];
 
     return LIBDRIVERS_OK;
 }

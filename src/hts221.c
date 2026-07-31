@@ -58,8 +58,8 @@ Libdrivers_Status_t HTS221_ReadCalibration(HTS221_Handle_t *pHandle) {
     // Each field's buffer index is (its register address - 0x30, the burst base).
     pHandle->H0_rH_x2 = cal[HTS221_REG_H0_RH_X2 - HTS221_REG_H0_RH_X2];
     pHandle->H1_rH_x2 = cal[HTS221_REG_H1_RH_X2 - HTS221_REG_H0_RH_X2];
-    pHandle->T0_degC_x8 = ((msb & HTS221_T0_MSB_MASK) << 8) |
-                          cal[HTS221_REG_T0_DEGC_X8 - HTS221_REG_H0_RH_X2];
+    pHandle->T0_degC_x8 =
+        ((msb & HTS221_T0_MSB_MASK) << 8) | cal[HTS221_REG_T0_DEGC_X8 - HTS221_REG_H0_RH_X2];
     pHandle->T1_degC_x8 = (((msb & HTS221_T1_MSB_MASK) >> HTS221_T1_MSB_SHIFT) << 8) |
                           cal[HTS221_REG_T1_DEGC_X8 - HTS221_REG_H0_RH_X2];
     pHandle->H0_T0_OUT = (cal[HTS221_REG_H0_T0_OUT_H - HTS221_REG_H0_RH_X2] << 8) |
@@ -76,29 +76,20 @@ Libdrivers_Status_t HTS221_ReadCalibration(HTS221_Handle_t *pHandle) {
 
 Libdrivers_Status_t HTS221_ReadRawOutput(HTS221_Handle_t *pHandle) {
 
-    // The return type of reading the register
-    Libdrivers_Status_t status;
+    // Buffer to store the raw temp and humidity output values
+    uint8_t out[4];
 
-    // Buffer to hold the 2 bytes for the _OUT registers
-    uint8_t buffer[2];
-
-    int16_t out;
-
-    status = HTS221_ReadReg(pHandle, HTS221_REG_HUMIDITY_OUT_L, buffer, 2);
+    Libdrivers_Status_t status =
+        HTS221_ReadReg(pHandle, HTS221_REG_HUMIDITY_OUT_L, out, sizeof(out));
     if (status != LIBDRIVERS_OK) {
         return status;
     }
 
-    out = (buffer[1] << 8) | buffer[0];
-    pHandle->H_OUT = out;
-
-    status = HTS221_ReadReg(pHandle, HTS221_REG_TEMP_OUT_L, buffer, 2);
-    if (status != LIBDRIVERS_OK) {
-        return status;
-    }
-
-    out = (buffer[1] << 8) | buffer[0];
-    pHandle->T_OUT = out;
+    // Each field's buffer index is (its register address - 0x28, the burst base).
+    pHandle->H_OUT = (out[HTS221_REG_HUMIDITY_OUT_H - HTS221_REG_HUMIDITY_OUT_L] << 8) |
+                     out[HTS221_REG_HUMIDITY_OUT_L - HTS221_REG_HUMIDITY_OUT_L];
+    pHandle->T_OUT = (out[HTS221_REG_TEMP_OUT_H - HTS221_REG_HUMIDITY_OUT_L] << 8) |
+                     out[HTS221_REG_TEMP_OUT_L - HTS221_REG_HUMIDITY_OUT_L];
 
     return LIBDRIVERS_OK;
 }

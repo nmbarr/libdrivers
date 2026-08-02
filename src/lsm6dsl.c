@@ -2,6 +2,15 @@
 #include "libdrivers/bus.h"
 #include <stdint.h>
 
+// Accelerometer sensitivity in mg/LSB x1000, indexed by LSM6DSL_XLFullScale_t
+// (2g, 16g, 4g, 8g -- the FS_XL raw code order, not ascending g).
+static const int32_t LSM6DSL_XLFullScale_Sensitivity[4] = {61, 488, 122, 244};
+
+// Gyroscope sensitivity in mdps/LSB x8, indexed by LSM6DSL_GyroFullScale_t
+// (250, 500, 1000, 2000, 125 dps). x8 clears the .375/.5 fractions in the
+// datasheet's 4.375/8.75/17.5 mdps/LSB values exactly, with no rounding loss.
+static const int32_t LSM6DSL_GyroFullScale_Sensitivity[5] = {70, 140, 280, 560, 35};
+
 Libdrivers_Status_t LSM6DSL_Init(LSM6DSL_Handle_t *pHandle, const LSM6DSL_Config_t *pConfig) {
 
     // Status from each register write
@@ -23,6 +32,23 @@ Libdrivers_Status_t LSM6DSL_Init(LSM6DSL_Handle_t *pHandle, const LSM6DSL_Config
     status = LSM6DSL_WriteReg(pHandle, LSM6DSL_REG_CTRL3_C, pConfig->CtrlReg3_C);
     if (status != LIBDRIVERS_OK) {
         return status;
+    }
+
+    // Cache the configured full-scale ranges so the _mg/_mdps readers can scale
+    // without re-reading CTRL1_XL/CTRL2_G. FS_XL[1:0] sits at bits [3:2]; its
+    // raw code already matches LSM6DSL_XLFullScale_t's values once shifted down.
+    pHandle->XLFullScale =
+        (LSM6DSL_XLFullScale_t)((pConfig->CtrlReg1_XL & LSM6DSL_FS_XL_BIT_MASK) >>
+                                LSM6DSL_FS_XL_BIT_SHIFT);
+
+    // FS_125 (bit 1) overrides FS_G[1:0] when set, so it must be checked first;
+    // otherwise decode FS_G[1:0] the same way as FS_XL above.
+    if (pConfig->CtrlReg2_G & LSM6DSL_FS_125_BIT_MASK) {
+        pHandle->GyroFullScale = LSM6DSL_FS_G_125;
+    } else {
+        pHandle->GyroFullScale =
+            (LSM6DSL_GyroFullScale_t)((pConfig->CtrlReg2_G & LSM6DSL_FS_G_BIT_MASK) >>
+                                      LSM6DSL_FS_G_BIT_SHIFT);
     }
 
     return LIBDRIVERS_OK;
@@ -75,6 +101,49 @@ Libdrivers_Status_t LSM6DSL_ReadRawGyro(LSM6DSL_Handle_t *pHandle, LSM6DSL_GyroD
     pData->X = (int16_t)((buffer[1] << 8) | buffer[0]); // X
     pData->Y = (int16_t)((buffer[3] << 8) | buffer[2]); // Y
     pData->Z = (int16_t)((buffer[5] << 8) | buffer[4]); // Z
+
+    return LIBDRIVERS_OK;
+}
+
+Libdrivers_Status_t LSM6DSL_ReadXL_mg(LSM6DSL_Handle_t *pHandle, LSM6DSL_XLData_mg_t *pData) {
+
+    // Take a fresh raw sample; nothing to scale on failure
+    LSM6DSL_XLData_t RawXLData;
+
+    Libdrivers_Status_t status = LSM6DSL_ReadRawXL(pHandle, &RawXLData);
+    if (status != LIBDRIVERS_OK) {
+        return status;
+    }
+
+    // FS decoded once by LSM6DSL_Init(); no bus access needed here
+    int32_t sensitivity = LSM6DSL_XLFullScale_Sensitivity[pHandle->XLFullScale];
+
+    // Table is mg/LSB x1000, so undo the x1000 after multiplying
+    pData->X_mg = (int32_t)RawXLData.X * sensitivity / 1000;
+    pData->Y_mg = (int32_t)RawXLData.Y * sensitivity / 1000;
+    pData->Z_mg = (int32_t)RawXLData.Z * sensitivity / 1000;
+
+    return LIBDRIVERS_OK;
+}
+
+Libdrivers_Status_t LSM6DSL_ReadGyro_mdps(LSM6DSL_Handle_t *pHandle,
+                                          LSM6DSL_GyroData_mdps_t *pData) {
+
+    // Take a fresh raw sample; nothing to scale on failure
+    LSM6DSL_GyroData_t RawGyroData;
+
+    Libdrivers_Status_t status = LSM6DSL_ReadRawGyro(pHandle, &RawGyroData);
+    if (status != LIBDRIVERS_OK) {
+        return status;
+    }
+
+    // FS decoded once by LSM6DSL_Init(); no bus access needed here
+    int32_t sensitivity = LSM6DSL_GyroFullScale_Sensitivity[pHandle->GyroFullScale];
+
+    // Table is mdps/LSB x8, so undo the x8 after multiplying
+    pData->X_mdps = (int32_t)RawGyroData.X * sensitivity / 8;
+    pData->Y_mdps = (int32_t)RawGyroData.Y * sensitivity / 8;
+    pData->Z_mdps = (int32_t)RawGyroData.Z * sensitivity / 8;
 
     return LIBDRIVERS_OK;
 }

@@ -124,8 +124,48 @@
 #define LSM6DSL_REG_Y_OFS_USR              0x74
 #define LSM6DSL_REG_Z_OFS_USR              0x75
 
+// Bit mask values
+#define LSM6DSL_FS_XL_BIT_MASK 0x0C /**< FS_XL[1:0] field within CTRL1_XL. */
+#define LSM6DSL_FS_G_BIT_MASK  0x0C /**< FS_G[1:0] field within CTRL2_G. */
+#define LSM6DSL_FS_125_BIT_MASK                                                                    \
+    0x02 /**< FS_125 bit within CTRL2_G; overrides FS_G[1:0] when set. */
+
+// Bit shift values
+#define LSM6DSL_FS_XL_BIT_SHIFT 2 /**< Shift to right-align FS_XL[1:0] after masking. */
+#define LSM6DSL_FS_G_BIT_SHIFT  2 /**< Shift to right-align FS_G[1:0] after masking. */
+
 // Expected WHO_AM_I value
 #define LSM6DSL_WHO_AM_I_VALUE 0x6A
+
+/**
+ * @brief Accelerometer full-scale range (FS_XL[1:0] in CTRL1_XL).
+ *
+ * Enumerator values equal the raw 2-bit FS_XL code, so decoding is a direct
+ * cast of the masked, shifted register value. Note the non-ascending order:
+ * the hardware encoding is not simply 2/4/8/16.
+ */
+typedef enum {
+    LSM6DSL_FS_XL_2G = 0x00,  /**< FS_XL = 00b: +/-2 g, 0.061 mg/LSB. */
+    LSM6DSL_FS_XL_16G = 0x01, /**< FS_XL = 01b: +/-16 g, 0.488 mg/LSB. */
+    LSM6DSL_FS_XL_4G = 0x02,  /**< FS_XL = 10b: +/-4 g, 0.122 mg/LSB. */
+    LSM6DSL_FS_XL_8G = 0x03,  /**< FS_XL = 11b: +/-8 g, 0.244 mg/LSB. */
+} LSM6DSL_XLFullScale_t;
+
+/**
+ * @brief Gyroscope full-scale range (FS_G[1:0] and FS_125 in CTRL2_G).
+ *
+ * The first four enumerator values equal the raw 2-bit FS_G code, so
+ * decoding is a direct cast of the masked, shifted register value. 125 dps
+ * is selected by the separate FS_125 bit (overriding FS_G[1:0]), so it is
+ * given a value outside that 2-bit range.
+ */
+typedef enum {
+    LSM6DSL_FS_G_250 = 0x00,  /**< FS_G = 00b: +/-250 dps, 8.75 mdps/LSB. */
+    LSM6DSL_FS_G_500 = 0x01,  /**< FS_G = 01b: +/-500 dps, 17.50 mdps/LSB. */
+    LSM6DSL_FS_G_1000 = 0x02, /**< FS_G = 10b: +/-1000 dps, 35 mdps/LSB. */
+    LSM6DSL_FS_G_2000 = 0x03, /**< FS_G = 11b: +/-2000 dps, 70 mdps/LSB. */
+    LSM6DSL_FS_G_125 = 0x04,  /**< FS_125 = 1: +/-125 dps, 4.375 mdps/LSB. */
+} LSM6DSL_GyroFullScale_t;
 
 /**
  * @brief LSM6DSL device handle.
@@ -134,7 +174,9 @@
  * calling any driver function.
  */
 typedef struct {
-    Libdrivers_Bus_t bus; /**< Register-bus transport for this device. */
+    Libdrivers_Bus_t bus;                  /**< Register-bus transport for this device. */
+    LSM6DSL_XLFullScale_t XLFullScale;     /**< Decoded by LSM6DSL_Init() from CTRL1_XL. */
+    LSM6DSL_GyroFullScale_t GyroFullScale; /**< Decoded by LSM6DSL_Init() from CTRL2_G. */
 } LSM6DSL_Handle_t;
 
 /**
@@ -163,6 +205,24 @@ typedef struct {
     int16_t Y; /**< Y axis. */
     int16_t Z; /**< Z axis. */
 } LSM6DSL_GyroData_t;
+
+/**
+ * @brief Scaled per-axis accelerometer sample, in milli-g.
+ */
+typedef struct {
+    int32_t X_mg; /**< X axis, mg. */
+    int32_t Y_mg; /**< Y axis, mg. */
+    int32_t Z_mg; /**< Z axis, mg. */
+} LSM6DSL_XLData_mg_t;
+
+/**
+ * @brief Scaled per-axis gyroscope sample, in milli-degrees-per-second.
+ */
+typedef struct {
+    int32_t X_mdps; /**< X axis, mdps. */
+    int32_t Y_mdps; /**< Y axis, mdps. */
+    int32_t Z_mdps; /**< Z axis, mdps. */
+} LSM6DSL_GyroData_mdps_t;
 
 /**
  * @brief Configure the device by writing CTRL_REG1..3 from @p pConfig.
@@ -218,6 +278,31 @@ Libdrivers_Status_t LSM6DSL_ReadRawXL(LSM6DSL_Handle_t *pHandle, LSM6DSL_XLData_
  * @return LIBDRIVERS_OK on success, or a transport error.
  */
 Libdrivers_Status_t LSM6DSL_ReadRawGyro(LSM6DSL_Handle_t *pHandle, LSM6DSL_GyroData_t *pData);
+
+/**
+ * @brief Read the accelerometer and scale it to milli-g.
+ *
+ * Takes a fresh raw sample and scales it using the full-scale range decoded
+ * by LSM6DSL_Init() from CTRL1_XL (LSM6DSL_Handle_t::XLFullScale).
+ *
+ * @param pHandle     Handle with an initialized bus, after LSM6DSL_Init().
+ * @param[out] pData  Filled with the signed per-axis samples, in mg.
+ * @return LIBDRIVERS_OK on success, or a transport error.
+ */
+Libdrivers_Status_t LSM6DSL_ReadXL_mg(LSM6DSL_Handle_t *pHandle, LSM6DSL_XLData_mg_t *pData);
+
+/**
+ * @brief Read the gyroscope and scale it to milli-degrees-per-second.
+ *
+ * Takes a fresh raw sample and scales it using the full-scale range decoded
+ * by LSM6DSL_Init() from CTRL2_G (LSM6DSL_Handle_t::GyroFullScale).
+ *
+ * @param pHandle     Handle with an initialized bus, after LSM6DSL_Init().
+ * @param[out] pData  Filled with the signed per-axis samples, in mdps.
+ * @return LIBDRIVERS_OK on success, or a transport error.
+ */
+Libdrivers_Status_t LSM6DSL_ReadGyro_mdps(LSM6DSL_Handle_t *pHandle,
+                                          LSM6DSL_GyroData_mdps_t *pData);
 
 /**
  * @brief Verify the WHO_AM_I register matches LSM6DSL_WHO_AM_I_VALUE.

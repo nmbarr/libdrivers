@@ -1,6 +1,9 @@
 #include "libdrivers/ds18b20.h"
 #include <stdint.h>
 
+// Temperature resolution: raw counts per degC (12-bit default resolution)
+static const float DS18B20_COUNTS_PER_DEGC = 16.0f;
+
 Libdrivers_Status_t DS18B20_Init(DS18B20_Handle_t *pHandle) {
     return pHandle->ow.reset(pHandle->ow.ctx);
 }
@@ -72,7 +75,7 @@ Libdrivers_Status_t DS18B20_ReadTemperature(DS18B20_Handle_t *pHandle, float *pT
     int16_t raw = (int16_t)((msb << 8) | lsb);
 
     // Convert to Celsius
-    *pTemperature = raw / 16.0f;
+    *pTemperature = raw / DS18B20_COUNTS_PER_DEGC;
 
     return LIBDRIVERS_OK;
 }

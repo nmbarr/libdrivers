@@ -1,6 +1,12 @@
 #include "libdrivers/hts221.h"
 #include <stdint.h>
 
+// Undoes the "_x8" fixed-point encoding on T0/T1_degC_x8
+static const float HTS221_DEGC_X8_SCALE = 8.0f;
+
+// Undoes the "_x2" fixed-point encoding on H0/H1_rH_x2
+static const float HTS221_RH_X2_SCALE = 2.0f;
+
 Libdrivers_Status_t HTS221_Init(HTS221_Handle_t *pHandle, const HTS221_Config_t *pConfig) {
 
     // The return type from writing to the register
@@ -99,8 +105,8 @@ Libdrivers_Status_t HTS221_CheckWhoAmI(HTS221_Handle_t *pHandle) {
 
 Libdrivers_Status_t HTS221_ReadTemperature(HTS221_Handle_t *pHandle, float *pTemperature) {
 
-    float T0_degC = pHandle->T0_degC_x8 / 8.0f;
-    float T1_degC = pHandle->T1_degC_x8 / 8.0f;
+    float T0_degC = pHandle->T0_degC_x8 / HTS221_DEGC_X8_SCALE;
+    float T1_degC = pHandle->T1_degC_x8 / HTS221_DEGC_X8_SCALE;
 
     Libdrivers_Status_t status = HTS221_ReadRawOutput(pHandle);
     if (status != LIBDRIVERS_OK) {
@@ -115,8 +121,8 @@ Libdrivers_Status_t HTS221_ReadTemperature(HTS221_Handle_t *pHandle, float *pTem
 
 Libdrivers_Status_t HTS221_ReadHumidity(HTS221_Handle_t *pHandle, float *pHumidity) {
 
-    float H0_rH = pHandle->H0_rH_x2 / 2.0f;
-    float H1_rH = pHandle->H1_rH_x2 / 2.0f;
+    float H0_rH = pHandle->H0_rH_x2 / HTS221_RH_X2_SCALE;
+    float H1_rH = pHandle->H1_rH_x2 / HTS221_RH_X2_SCALE;
 
     Libdrivers_Status_t status = HTS221_ReadRawOutput(pHandle);
     if (status != LIBDRIVERS_OK) {

@@ -86,5 +86,30 @@ Libdrivers_STM32_I2C_InitBus(&hts221.bus, &ctx);
 if (HTS221_CheckWhoAmI(&hts221) != LIBDRIVERS_OK) { /* handle */ }
 ```
 
-A working consumer is the B-L4S5I-IOT01A firmware, which pins this repo as a
-submodule and builds a chosen port into its CubeMX project.
+An SPI part wires the same way, but its port context also names the
+chip-select GPIO, and the driver takes a `Config` at `Init`:
+
+```c
+#include "libdrivers/icm42688.h"
+#include "libdrivers_stm32_spi.h"
+
+static Libdrivers_STM32_SPI_Context_t ctx = {
+    .hspi = &hspi1, .cs_port = GPIOA, .cs_pin = GPIO_PIN_4,
+};
+ICM42688_Handle_t icm;
+Libdrivers_STM32_SPI_InitBus(&icm.bus, &ctx);
+
+if (ICM42688_CheckWhoAmI(&icm) != LIBDRIVERS_OK) { /* handle */ }
+
+// Power both sub-sensors and pick full-scale + ODR (see the datasheet
+// for the PWR_MGMT0 / *_CONFIG0 field encodings).
+ICM42688_Config_t cfg = { .PwrMgmt0 = 0x0F, .GyroConfig0 = 0x06, .AccelConfig0 = 0x06 };
+ICM42688_Init(&icm, &cfg);
+
+ICM42688_AccelData_mg_t accel;
+ICM42688_ReadAccel_mg(&icm, &accel);
+```
+
+A working consumer is the [hottub_monitor](https://github.com/nmbarr/hottub_monitor)
+firmware, which pins this repo as a submodule and builds a chosen port into its
+CubeMX project.

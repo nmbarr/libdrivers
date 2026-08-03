@@ -1,16 +1,5 @@
 #include "libdrivers_stm32_i2c.h"
-
-// Helper to translate HAL_StatusTypeDef returns to Libdrivers_Status_t returns
-static Libdrivers_Status_t CollapseStatus(HAL_StatusTypeDef HalStatus) {
-    switch (HalStatus) {
-    case HAL_OK:
-        return LIBDRIVERS_OK;
-    case HAL_TIMEOUT:
-        return LIBDRIVERS_ERR_TIMEOUT;
-    default:
-        return LIBDRIVERS_ERR_BUS;
-    }
-}
+#include "libdrivers_stm32_common.h"
 
 static Libdrivers_Status_t STM32_I2C_Read(void *ctx, uint8_t reg, uint8_t *buf, uint16_t len) {
 
@@ -22,7 +11,7 @@ static Libdrivers_Status_t STM32_I2C_Read(void *ctx, uint8_t reg, uint8_t *buf, 
                                                    I2C_MEMADD_SIZE_8BIT, buf, len, HAL_MAX_DELAY);
 
     // Translate STM32 HAL status back to libdrivers status
-    return CollapseStatus(HalStatus);
+    return Libdrivers_STM32_CollapseStatus(HalStatus);
 }
 
 static Libdrivers_Status_t STM32_I2C_Write(void *ctx, uint8_t reg, const uint8_t *buf,
@@ -35,7 +24,7 @@ static Libdrivers_Status_t STM32_I2C_Write(void *ctx, uint8_t reg, const uint8_t
                                                     I2C_MEMADD_SIZE_8BIT, buf, len, HAL_MAX_DELAY);
 
     // Translate STM32 HAL status back to libdrivers status
-    return CollapseStatus(HalStatus);
+    return Libdrivers_STM32_CollapseStatus(HalStatus);
 }
 
 static void STM32_I2C_Delay(void *ctx, uint32_t ms) {

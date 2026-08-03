@@ -27,6 +27,8 @@ type regardless of transport. `src/bus.c` holds shared helpers such as
 | HTS221   | Humidity + temperature        | `Libdrivers_Bus_t`   |
 | LIS3MDL  | 3-axis magnetometer           | `Libdrivers_Bus_t`   |
 | LSM6DSL  | 3-axis accelerometer + gyro   | `Libdrivers_Bus_t`   |
+| LPS22HB  | Pressure + temperature        | `Libdrivers_Bus_t`   |
+| ICM42688 | 3-axis accelerometer + gyro   | `Libdrivers_Bus_t`   |
 | DS18B20  | 1-Wire temperature            | `Libdrivers_OneWire_t` |
 
 Each register-bus driver provides Init, register read/write, a WHO_AM_I check,
@@ -41,8 +43,13 @@ firmware/CubeMX project, which grafts the port source into its own build.
 
 - `port/stm32/libdrivers_stm32_i2c.{c,h}` — wraps `HAL_I2C_Mem_Read/Write` +
   `HAL_Delay` for `Libdrivers_Bus_t`. Wire it with `Libdrivers_STM32_I2C_InitBus`.
+- `port/stm32/libdrivers_stm32_spi.{c,h}` — wraps `HAL_SPI_Transmit/Receive` +
+  `HAL_Delay` for `Libdrivers_Bus_t`, applying the SPI R/W address bit and
+  driving a manual chip-select GPIO. Wire it with `Libdrivers_STM32_SPI_InitBus`.
 - `port/stm32/libdrivers_stm32_onewire.{c,h}` — bit-banged GPIO 1-Wire using a
   DWT cycle-counter µs timer. Wire it with `Libdrivers_STM32_OneWire_InitBus`.
+- `port/stm32/libdrivers_stm32_common.{c,h}` — shared HAL-status translation
+  used by the I2C and SPI ports. Add it to the firmware build alongside either.
 
 ## Layout
 

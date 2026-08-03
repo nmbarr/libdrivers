@@ -19,7 +19,9 @@ project(libdrivers
 add_library(drivers
     src/ds18b20.c
     src/hts221.c
+    src/icm42688.c
     src/lis3mdl.c
+    src/lps22hb.c
     src/lsm6dsl.c
 )
 

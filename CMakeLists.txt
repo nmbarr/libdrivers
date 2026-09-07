@@ -17,6 +17,7 @@ project(libdrivers
 # Target is named "drivers" (not "libdrivers"): CMake prepends the "lib"
 # prefix itself, so this produces libdrivers.a and links as -ldrivers.
 add_library(drivers
+    src/bus.c
     src/ds18b20.c
     src/hts221.c
     src/icm42688.c

@@ -68,8 +68,8 @@ typedef struct {
     Libdrivers_ow_reset_fn reset;      /**< Reset + presence detect. */
     Libdrivers_ow_write_byte_fn write; /**< Write one byte, LSB first. */
     Libdrivers_ow_read_byte_fn read;   /**< Read one byte, LSB first. */
-    void *ctx; /**< Opaque, port-owned. The core never dereferences it; the
-                    app owns it and it must outlive the handle. */
+    void *ctx;                         /**< Opaque, port-owned. The core never dereferences it; the
+                                            app owns it and it must outlive the handle. */
 } Libdrivers_OneWire_t;
 
 #endif // LIBDRIVERS_ONEWIRE_H

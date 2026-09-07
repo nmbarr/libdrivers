@@ -1,5 +1,7 @@
 # libdrivers
 
+[![CI](https://github.com/nmbarr/libdrivers/actions/workflows/ci.yml/badge.svg)](https://github.com/nmbarr/libdrivers/actions/workflows/ci.yml)
+
 Vendor-agnostic C library of embedded sensor drivers. The driver core is
 **HAL-free**: drivers never include a vendor HAL. Instead they talk to hardware
 through small function-pointer transport contracts, and a thin per-platform
@@ -69,6 +71,39 @@ cmake -S . -B build && cmake --build build
 
 `include/` is exported `PUBLIC`; the standard is C11. Host toolchains (e.g. plain
 gcc) work, since the core pulls in no MCU headers.
+
+## CI
+
+`.github/workflows/ci.yml` runs on every push to `main` and every pull request.
+Because `port/` needs a vendor HAL that lives in the consuming firmware project,
+CI builds only the HAL-free core; the ports are still format-checked.
+
+| Job           | What it checks                                                       |
+|---------------|----------------------------------------------------------------------|
+| `build`       | The core compiles under gcc *and* clang with `-Wall -Wextra -Wpedantic -Werror`, links with no undefined symbols, and every public header compiles standalone |
+| `cross-build` | The core also builds bare-metal for Cortex-M4 with `arm-none-eabi-gcc`, and reports per-driver flash cost |
+| `format`      | `src/`, `include/`, and `port/` match `.clang-format`                 |
+| `tidy`        | `clang-tidy` finds nothing under the checks in `.clang-tidy`          |
+
+The undefined-symbol check builds the same sources as a shared object with
+`-Wl,--no-undefined`. A static archive links fine with unresolved symbols in it,
+so without this a source file missing from `CMakeLists.txt` would only surface
+at firmware link time, in someone else's project.
+
+Reproduce any of it locally (clang 18 is what CI pins):
+
+```sh
+# build job
+cmake -S . -B build -DCMAKE_C_FLAGS="-Wall -Wextra -Wpedantic -Werror"
+cmake --build build
+
+# format job
+clang-format --dry-run -Werror src/*.c include/libdrivers/*.h port/stm32/*.{c,h}
+
+# tidy job
+cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+clang-tidy -p build src/*.c
+```
 
 ## Usage
 

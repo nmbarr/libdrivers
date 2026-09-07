@@ -1,0 +1,32 @@
+# libdrivers static analysis
+#
+# Curated for a bare-metal C driver library: the goal is real defect classes
+# (undefined behaviour, bad branches, misused APIs, dead stores), not style
+# opinions that clang-format already owns or that fight normal embedded idiom.
+#
+# Run locally the same way CI does:
+#   cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+#   clang-tidy -p build src/*.c
+Checks: >
+  -*,
+  bugprone-*,
+  clang-analyzer-*,
+  performance-*,
+  portability-*,
+  readability-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  -readability-avoid-const-params-in-decls,
+  -readability-braces-around-statements,
+  -readability-function-cognitive-complexity,
+  -readability-identifier-length,
+  -readability-isolate-declaration,
+  -readability-magic-numbers,
+  -readability-uppercase-literal-suffix
+
+# Diagnose the public headers too, not just the .c files that include them.
+HeaderFilterRegex: 'include/libdrivers/.*\.h$'
+
+# CI passes --warnings-as-errors on the command line; leaving it unset here
+# keeps an interactive run advisory.
+WarningsAsErrors: ''

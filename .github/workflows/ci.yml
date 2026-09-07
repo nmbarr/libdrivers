@@ -1,0 +1,150 @@
+name: CI
+
+# The HAL-free core (src/ + include/) is the only thing CI can build: port/
+# includes a vendor HAL that lives in the consuming firmware project, not here.
+# Ports are still covered by the format job, which is all that can be checked
+# without a CubeMX tree.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A new push to a PR makes the in-flight run obsolete; don't burn runners on it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Every build job compiles the core under these. The core is clean under
+  # them today, so -Werror keeps it that way. -Wconversion is deliberately
+  # absent: the drivers rely on integer promotion when packing register bytes
+  # into int16_t samples, and flagging that is noise, not a defect signal.
+  WARNINGS: -Wall -Wextra -Wpedantic -Werror
+
+jobs:
+  build:
+    name: build (${{ matrix.cc }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ninja-build
+
+      - name: Configure
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_C_COMPILER=${{ matrix.cc }}
+          -DCMAKE_C_FLAGS="$WARNINGS"
+
+      - name: Build
+        run: cmake --build build
+
+      # A static archive links happily with undefined symbols in it -- the
+      # consumer only finds out at firmware link time. Building the same
+      # sources as a shared object with --no-undefined resolves every symbol
+      # now, so a source file missing from CMakeLists.txt fails here instead.
+      - name: Check the library has no undefined symbols
+        run: |
+          cmake -S . -B build-shared -G Ninja \
+            -DCMAKE_C_COMPILER=${{ matrix.cc }} \
+            -DCMAKE_C_FLAGS="$WARNINGS" \
+            -DBUILD_SHARED_LIBS=ON \
+            -DCMAKE_SHARED_LINKER_FLAGS="-Wl,--no-undefined"
+          cmake --build build-shared
+
+      # include/ is exported PUBLIC, so a consumer may include any header
+      # first. Each must therefore compile on its own, without a prerequisite
+      # include ahead of it.
+      - name: Check public headers are self-contained
+        run: |
+          status=0
+          for header in include/libdrivers/*.h; do
+            echo "#include \"${header#include/}\"" > /tmp/header_check.c
+            if ! ${{ matrix.cc }} -std=c11 $WARNINGS -Iinclude \
+                 -c /tmp/header_check.c -o /dev/null; then
+              echo "::error file=$header::header is not self-contained"
+              status=1
+            fi
+          done
+          exit $status
+
+  cross-build:
+    # The point of the HAL-free core is that it builds for the target too, not
+    # just the host. Cortex-M4 stands in for the STM32L4 the ports target.
+    name: cross-build (cortex-m4)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ARM toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc-arm-none-eabi ninja-build
+
+      # CMAKE_TRY_COMPILE_TARGET_TYPE keeps CMake's compiler probe from trying
+      # to link a full executable, which a bare-metal toolchain cannot do
+      # without a linker script and startup code.
+      - name: Configure
+        run: >
+          cmake -S . -B build-arm -G Ninja
+          -DCMAKE_SYSTEM_NAME=Generic
+          -DCMAKE_SYSTEM_PROCESSOR=arm
+          -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY
+          -DCMAKE_C_COMPILER=arm-none-eabi-gcc
+          -DCMAKE_C_FLAGS="-mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16 -ffunction-sections -fdata-sections $WARNINGS"
+
+      - name: Build
+        run: cmake --build build-arm
+
+      # Flash/RAM cost per driver, in the job log. Informational, not a gate.
+      - name: Report section sizes
+        run: arm-none-eabi-size -t build-arm/libdrivers.a
+
+  format:
+    name: clang-format
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang-format-18
+
+      # port/ is included here: .clang-format applies to it even though nothing
+      # in CI can compile it.
+      - name: Check formatting against .clang-format
+        run: |
+          clang-format-18 --version
+          clang-format-18 --dry-run -Werror \
+            src/*.c include/libdrivers/*.h port/stm32/*.c port/stm32/*.h
+
+  tidy:
+    name: clang-tidy
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang-tidy and Ninja
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang-tidy-18 ninja-build
+
+      # clang-tidy reads the flags for each file out of the compilation
+      # database, so the tree has to be configured before it can run.
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      # Checks come from .clang-tidy at the repo root; --warnings-as-errors
+      # promotes them here without making an interactive run fail.
+      - name: Run clang-tidy
+        run: |
+          clang-tidy-18 --version
+          clang-tidy-18 -p build --warnings-as-errors='*' src/*.c

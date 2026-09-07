@@ -44,9 +44,13 @@ jobs:
           cmake -S . -B build -G Ninja
           -DCMAKE_C_COMPILER=${{ matrix.cc }}
           -DCMAKE_C_FLAGS="$WARNINGS"
+          -DLIBDRIVERS_WARNINGS_AS_ERRORS=ON
 
       - name: Build
         run: cmake --build build
+
+      - name: Run unit tests
+        run: ctest --test-dir build --output-on-failure
 
       # A static archive links happily with undefined symbols in it -- the
       # consumer only finds out at firmware link time. Building the same
@@ -57,6 +61,7 @@ jobs:
           cmake -S . -B build-shared -G Ninja \
             -DCMAKE_C_COMPILER=${{ matrix.cc }} \
             -DCMAKE_C_FLAGS="$WARNINGS" \
+            -DLIBDRIVERS_BUILD_TESTS=OFF \
             -DBUILD_SHARED_LIBS=ON \
             -DCMAKE_SHARED_LINKER_FLAGS="-Wl,--no-undefined"
           cmake --build build-shared
@@ -100,6 +105,7 @@ jobs:
           -DCMAKE_SYSTEM_PROCESSOR=arm
           -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY
           -DCMAKE_C_COMPILER=arm-none-eabi-gcc
+          -DLIBDRIVERS_BUILD_TESTS=OFF
           -DCMAKE_C_FLAGS="-mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16 -ffunction-sections -fdata-sections $WARNINGS"
 
       - name: Build
@@ -108,6 +114,38 @@ jobs:
       # Flash/RAM cost per driver, in the job log. Informational, not a gate.
       - name: Report section sizes
         run: arm-none-eabi-size -t build-arm/libdrivers.a
+
+  sanitizers:
+    # The unit tests drive the drivers over deliberately awkward input --
+    # boundary values, injected transport failures, full-scale sweeps -- which
+    # is exactly the traffic worth running under a sanitizer. UBSan caught a
+    # real undefined shift in the LPS22HB pressure decode this way.
+    #
+    # gcc only: the clang runtime needs a separate package, and one working
+    # sanitizer build is what matters here, not two.
+    name: sanitizers (asan + ubsan)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ninja-build
+
+      # -fno-sanitize-recover makes a finding abort the run: without it UBSan
+      # prints a diagnostic, carries on, and the job still passes green.
+      - name: Configure
+        run: >
+          cmake -S . -B build-san -G Ninja
+          -DCMAKE_C_COMPILER=gcc
+          -DLIBDRIVERS_WARNINGS_AS_ERRORS=ON
+          -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-sanitize-recover=all -g $WARNINGS"
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+
+      - name: Build
+        run: cmake --build build-san
+
+      - name: Run unit tests under sanitizers
+        run: ctest --test-dir build-san --output-on-failure
 
   format:
     name: clang-format
@@ -124,7 +162,8 @@ jobs:
         run: |
           clang-format-18 --version
           clang-format-18 --dry-run -Werror \
-            src/*.c include/libdrivers/*.h port/stm32/*.c port/stm32/*.h
+            src/*.c include/libdrivers/*.h port/stm32/*.c port/stm32/*.h \
+            test/*.c test/*.h
 
   tidy:
     name: clang-tidy
@@ -147,4 +186,4 @@ jobs:
       - name: Run clang-tidy
         run: |
           clang-tidy-18 --version
-          clang-tidy-18 -p build --warnings-as-errors='*' src/*.c
+          clang-tidy-18 -p build --warnings-as-errors='*' src/*.c test/*.c

@@ -47,3 +47,33 @@ target_compile_features(drivers PUBLIC c_std_11)
 # this library. The firmware project already has the HAL on its include path.
 # This keeps the core genuinely vendor-neutral: this file never names a HAL.
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Tests
+#
+# Host-side unit tests for the core, run with CTest:
+#
+#   cmake -S . -B build && cmake --build build && ctest --test-dir build
+#
+# Default ON when libdrivers is the project being built, OFF when it has been
+# pulled into a firmware build with add_subdirectory(): a consumer wants the
+# library, not its test binaries, and the tests would not link against a
+# bare-metal toolchain anyway.
+# ---------------------------------------------------------------------------
+if(PROJECT_IS_TOP_LEVEL)
+    set(LIBDRIVERS_BUILD_TESTS_DEFAULT ON)
+else()
+    set(LIBDRIVERS_BUILD_TESTS_DEFAULT OFF)
+endif()
+
+option(LIBDRIVERS_BUILD_TESTS "Build the host-side unit tests"
+       ${LIBDRIVERS_BUILD_TESTS_DEFAULT})
+
+# Off by default so a warning does not block someone's local build; CI turns it
+# on, which is where keeping the tree warning-free is actually enforced.
+option(LIBDRIVERS_WARNINGS_AS_ERRORS "Treat compiler warnings in the tests as errors" OFF)
+
+if(LIBDRIVERS_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(test)
+endif()

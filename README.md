@@ -57,6 +57,7 @@ firmware/CubeMX project, which grafts the port source into its own build.
 
 - `include/libdrivers/` — public headers (Doxygen-documented)
 - `src/` — HAL-free driver + contract sources
+- `test/` — host-side unit tests and the transport fakes they run against
 - `port/stm32/` — STM32 HAL adapters (built by the firmware, not here)
 - `datasheets/` — component datasheets for reference
 
@@ -72,6 +73,55 @@ cmake -S . -B build && cmake --build build
 `include/` is exported `PUBLIC`; the standard is C11. Host toolchains (e.g. plain
 gcc) work, since the core pulls in no MCU headers.
 
+## Tests
+
+The drivers reach hardware only through the function-pointer transports in
+`bus.h` / `onewire.h`, which is what makes them testable off target: a test
+supplies its own implementation of a transport and runs the real driver code on
+the host. No hardware, no HAL, no target toolchain.
+
+```sh
+cmake -S . -B build && cmake --build build && ctest --test-dir build
+```
+
+`test/` holds two fakes and one suite per driver:
+
+- **`fake_bus`** — a `Libdrivers_Bus_t` over a 256-byte register file. It records
+  every transaction, so a test can assert what the driver actually put on the
+  wire: the register address *including the auto-increment bit*, the direction,
+  the length and the bytes. That recording matters as much as the decoded value,
+  because several of these drivers differ only in whether they set that bit, and
+  the difference is invisible in the sample they return.
+- **`fake_onewire`** — a `Libdrivers_OneWire_t` that replays a scripted byte
+  sequence and logs the command bytes, so the DS18B20's reset / Skip ROM /
+  function-command ordering can be checked.
+
+Both fakes inject a transport failure at a chosen step, which is how the
+"stops at the first failing write" and "leaves the output untouched on failure"
+cases are driven.
+
+What the suites pin down, beyond the happy path:
+
+- **Register traffic** — the exact registers `Init` writes, their order (the
+  ICM42688 must configure full-scale *before* PWR_MGMT0 powers the sensors on),
+  and that a failing write stops the sequence instead of half-configuring a part.
+- **The auto-increment bit** — set by HTS221/LIS3MDL/LPS22HB, and deliberately
+  *not* set by LSM6DSL/ICM42688, which auto-increment internally.
+- **Byte order and sign** — little-endian for the ST parts, big-endian for the
+  ICM42688, across the full `int16_t` range; the LPS22HB's 24-bit pressure at
+  all four of its extremes.
+- **Scaling** — every full-scale code of both IMUs against its datasheet
+  sensitivity, including the LSM6DSL's `FS_125` bit overriding `FS_G`, and the
+  DS18B20's datasheet temperature/data table.
+- **Failure contracts** — a transport error propagates unchanged rather than
+  being flattened into `ERR_ID`, and a failed read leaves the caller's output
+  variable alone.
+
+The suite is mutation-tested: deliberately breaking a driver (dropping the
+auto-increment bit, swapping a byte order, checking `FS_G` before `FS_125`,
+accepting a mismatched WHO_AM_I) must make it fail. A test that cannot fail is
+not a test.
+
 ## CI
 
 `.github/workflows/ci.yml` runs on every push to `main` and every pull request.
@@ -80,9 +130,10 @@ CI builds only the HAL-free core; the ports are still format-checked.
 
 | Job           | What it checks                                                       |
 |---------------|----------------------------------------------------------------------|
-| `build`       | The core compiles under gcc *and* clang with `-Wall -Wextra -Wpedantic -Werror`, links with no undefined symbols, and every public header compiles standalone |
+| `build`       | The core and tests compile under gcc *and* clang with `-Wall -Wextra -Wpedantic -Werror`, the suite passes, the library links with no undefined symbols, and every public header compiles standalone |
 | `cross-build` | The core also builds bare-metal for Cortex-M4 with `arm-none-eabi-gcc`, and reports per-driver flash cost |
-| `format`      | `src/`, `include/`, and `port/` match `.clang-format`                 |
+| `sanitizers`  | The suite passes under AddressSanitizer + UndefinedBehaviorSanitizer  |
+| `format`      | `src/`, `include/`, `port/` and `test/` match `.clang-format`          |
 | `tidy`        | `clang-tidy` finds nothing under the checks in `.clang-tidy`          |
 
 The undefined-symbol check builds the same sources as a shared object with
@@ -90,20 +141,36 @@ The undefined-symbol check builds the same sources as a shared object with
 so without this a source file missing from `CMakeLists.txt` would only surface
 at firmware link time, in someone else's project.
 
+The sanitizer job earns its place: the tests push the drivers through boundary
+values and injected failures, which is exactly the traffic worth running under
+UBSan. It found a real undefined shift in the LPS22HB pressure decode.
+
 Reproduce any of it locally (clang 18 is what CI pins):
 
 ```sh
 # build job
-cmake -S . -B build -DCMAKE_C_FLAGS="-Wall -Wextra -Wpedantic -Werror"
-cmake --build build
+cmake -S . -B build -DCMAKE_C_FLAGS="-Wall -Wextra -Wpedantic -Werror" \
+      -DLIBDRIVERS_WARNINGS_AS_ERRORS=ON
+cmake --build build && ctest --test-dir build --output-on-failure
+
+# sanitizers job
+cmake -S . -B build-san \
+      -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-sanitize-recover=all -g" \
+      -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+cmake --build build-san && ctest --test-dir build-san --output-on-failure
 
 # format job
-clang-format --dry-run -Werror src/*.c include/libdrivers/*.h port/stm32/*.{c,h}
+clang-format --dry-run -Werror src/*.c include/libdrivers/*.h port/stm32/*.{c,h} \
+      test/*.{c,h}
 
 # tidy job
 cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-clang-tidy -p build src/*.c
+clang-tidy -p build src/*.c test/*.c
 ```
+
+Tests are built when libdrivers is the top-level project and skipped when it is
+pulled into a firmware build with `add_subdirectory()`; set
+`-DLIBDRIVERS_BUILD_TESTS=OFF` to skip them explicitly.
 
 ## Usage
 

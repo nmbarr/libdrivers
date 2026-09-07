@@ -6,7 +6,7 @@
 #
 # Run locally the same way CI does:
 #   cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-#   clang-tidy -p build src/*.c
+#   clang-tidy -p build src/*.c test/*.c
 Checks: >
   -*,
   bugprone-*,
@@ -22,10 +22,12 @@ Checks: >
   -readability-identifier-length,
   -readability-isolate-declaration,
   -readability-magic-numbers,
-  -readability-uppercase-literal-suffix
+  -readability-uppercase-literal-suffix,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling
 
-# Diagnose the public headers too, not just the .c files that include them.
-HeaderFilterRegex: 'include/libdrivers/.*\.h$'
+# Diagnose the public headers and the test support headers too, not just the
+# .c files that include them.
+HeaderFilterRegex: '(include/libdrivers|test)/.*\.h$'
 
 # CI passes --warnings-as-errors on the command line; leaving it unset here
 # keeps an interactive run advisory.

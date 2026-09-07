@@ -7,6 +7,9 @@ static const float LPS22HB_PRESSURE_COUNTS_PER_HPA = 4096.0f;
 // Temperature sensitivity: raw counts per degC
 static const float LPS22HB_TEMPERATURE_COUNTS_PER_DEGC = 100.0f;
 
+// Sign bit of the 24-bit pressure value, used to sign-extend it into int32_t
+static const uint32_t LPS22HB_PRESSURE_SIGN_BIT = 0x800000u;
+
 Libdrivers_Status_t LPS22HB_Init(LPS22HB_Handle_t *pHandle, const LPS22HB_Config_t *pConfig) {
 
     // The return type from writing to the register
@@ -59,12 +62,19 @@ Libdrivers_Status_t LPS22HB_ReadRawOutput(LPS22HB_Handle_t *pHandle) {
     }
 
     // Each field's buffer index is (its register address - 0x28, the burst base).
-    // Pressure is 24-bit two's complement; sign-extend the MSB through int8_t before
-    // widening so a negative reading doesn't come out as a large positive int32_t.
+    // Assemble the three pressure bytes as unsigned: shifting a byte that has
+    // already been made negative is undefined behaviour, so the sign has to be
+    // applied after the value is whole, not before.
+    uint32_t pressure = ((uint32_t)out[LPS22HB_REG_PRESS_OUT_H - LPS22HB_REG_PRESS_OUT_XL] << 16) |
+                        ((uint32_t)out[LPS22HB_REG_PRESS_OUT_L - LPS22HB_REG_PRESS_OUT_XL] << 8) |
+                        (uint32_t)out[LPS22HB_REG_PRESS_OUT_XL - LPS22HB_REG_PRESS_OUT_XL];
+
+    // Sign-extend the 24-bit two's-complement value into int32_t. Flipping the
+    // sign bit and subtracting its weight does that with no shift of a negative
+    // value and no implementation-defined conversion: the XOR leaves a result
+    // that always fits in int32_t, and the subtraction restores the sign.
     pHandle->P_OUT =
-        ((int32_t)(int8_t)out[LPS22HB_REG_PRESS_OUT_H - LPS22HB_REG_PRESS_OUT_XL] << 16 |
-         (out[LPS22HB_REG_PRESS_OUT_L - LPS22HB_REG_PRESS_OUT_XL] << 8) |
-         out[LPS22HB_REG_PRESS_OUT_XL - LPS22HB_REG_PRESS_OUT_XL]);
+        (int32_t)(pressure ^ LPS22HB_PRESSURE_SIGN_BIT) - (int32_t)LPS22HB_PRESSURE_SIGN_BIT;
     pHandle->T_OUT = (out[LPS22HB_REG_TEMP_OUT_H - LPS22HB_REG_PRESS_OUT_XL] << 8) |
                      out[LPS22HB_REG_TEMP_OUT_L - LPS22HB_REG_PRESS_OUT_XL];
 

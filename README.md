@@ -124,7 +124,11 @@ not a test.
 
 ## CI
 
-`.github/workflows/ci.yml` runs on every push to `main` and every pull request.
+`.github/workflows/ci.yml` runs on every push to `main`, every pull request,
+and weekly on Mondays at 06:00 UTC. The weekly run exists because no job here
+pins a toolchain version, so a break can arrive from the runner image rather
+than from a commit.
+
 Because `port/` needs a vendor HAL that lives in the consuming firmware project,
 CI builds only the HAL-free core; the ports are still format-checked.
 

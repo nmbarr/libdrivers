@@ -8,6 +8,13 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Nothing here pins a toolchain version -- the jobs install whatever gcc,
+  # clang and arm-none-eabi the runner image currently ships. A weekly run
+  # catches a break that arrives from upstream rather than from a commit, so
+  # the next contributor doesn't meet it as a red PR unrelated to their diff.
+  # Scheduled runs always use the default branch, which is the right target.
+  schedule:
+    - cron: "0 6 * * 1" # Mondays, 06:00 UTC
   workflow_dispatch:
 
 permissions:
